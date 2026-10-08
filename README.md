@@ -3,7 +3,6 @@
 A personal deployment platform that automates building and hosting frontend applications, turning GitHub repositories into live websites instantly.
 
 ![shipStack Architecture](https://img.sanishtech.com/u/a272da655f3432f0be25657628270bbc.png)
-*(Note: Replace the link with your actual screenshot or diagram link if hosted differently)*
 
 ## Why I Built This
 shipStack was built to simplify the deployment workflow for frontend developers. Inspired by platforms like Vercel and Netlify, it provides a seamless experience for taking a GitHub repository and making it live on the web in minutes. It serves as an exploration into distributed systems, container orchestration, and real-time data streaming.
