@@ -1,8 +1,8 @@
-# shipStack
+# ShipStack-Your-Personal-Deployment-Platform
 
 A personal deployment platform that automates building and hosting frontend applications, turning GitHub repositories into live websites instantly.
 
-![shipStack Architecture](https://raw.githubusercontent.com/DivyanshuRanjanDynamic/ShipStack-Your-Personal-Deployment-Platform/main/architecture.png)
+![shipStack Architecture](https://img.sanishtech.com/u/a272da655f3432f0be25657628270bbc.png)
 *(Note: Replace the link with your actual screenshot or diagram link if hosted differently)*
 
 ## Why I Built This
