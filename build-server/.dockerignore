@@ -1,0 +1,14 @@
+# Secrets — NEVER send to Docker
+.env
+.env.*
+
+# Dependencies — reinstalled inside container
+node_modules/
+
+# Git
+.git
+.gitignore
+
+# Logs
+*.log
+npm-debug.log*

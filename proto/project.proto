@@ -1,0 +1,18 @@
+syntax = "proto3";
+
+package project;
+
+service ProjectService {
+  rpc GetProjectBySubdomain (GetProjectRequest) returns (GetProjectResponse);
+}
+
+message GetProjectRequest {
+  string subdomain = 1;
+}
+
+message GetProjectResponse {
+  string id = 1;
+  string name = 2;
+  string sub_domain = 3;
+  string git_url = 4;
+}
