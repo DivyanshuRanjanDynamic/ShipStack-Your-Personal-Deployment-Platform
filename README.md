@@ -119,5 +119,7 @@ npm test
 This project is licensed under the ISC License.
 
 ## Contact
-Your Name - [Your Twitter/LinkedIn](link) - your.email@example.com
+Your Name - [Your Twitter/LinkedIn](https://www.linkedin.com/in/divyanshu-ranjan-6b3b37277/) - divyanshu.work914214@gmail.com
 Project Link: [https://github.com/yourusername/shipStack](https://github.com/yourusername/shipStack)
+Portfolio Link: [https://divyanshu.online)
+
