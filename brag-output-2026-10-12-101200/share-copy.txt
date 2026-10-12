@@ -1,2 +1,0 @@
-Introducing ShipStack: a failed deployment is not a dead end.
-Git in, live URL out — and when the build dies, RAG names the root cause.
