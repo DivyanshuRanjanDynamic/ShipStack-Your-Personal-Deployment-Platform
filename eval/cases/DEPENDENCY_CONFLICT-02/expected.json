@@ -1,0 +1,10 @@
+{
+  "id": "DEPENDENCY_CONFLICT-02",
+  "category": "DEPENDENCY_CONFLICT",
+  "secondary_categories": [],
+  "root_cause_must_mention": ["eslint", "peer", "eslint-config-react-app"],
+  "fix_must_mention": ["eslint", "8", "pin"],
+  "difficulty": "medium",
+  "framework": "cra",
+  "package_manager": "npm"
+}

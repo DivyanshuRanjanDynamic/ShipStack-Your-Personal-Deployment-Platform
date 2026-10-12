@@ -1,0 +1,10 @@
+{
+  "id": "DEPENDENCY_CONFLICT-01",
+  "category": "DEPENDENCY_CONFLICT",
+  "secondary_categories": [],
+  "root_cause_must_mention": ["react-beautiful-dnd", "peer", "react"],
+  "fix_must_mention": ["--legacy-peer-deps"],
+  "difficulty": "easy",
+  "framework": "vite",
+  "package_manager": "npm"
+}

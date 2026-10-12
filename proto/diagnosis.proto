@@ -1,0 +1,51 @@
+syntax = "proto3";
+
+package diagnosis;
+
+service DiagnosisService {
+  rpc UpsertPending (UpsertPendingRequest) returns (UpsertPendingResponse);
+  rpc MarkDone (MarkDoneRequest) returns (MarkDoneResponse);
+  rpc MarkFailed (MarkFailedRequest) returns (MarkFailedResponse);
+  rpc GetDiagnosis (GetDiagnosisRequest) returns (GetDiagnosisResponse);
+}
+
+message UpsertPendingRequest {
+  string deployment_id = 1;
+}
+
+message UpsertPendingResponse {
+  string id = 1;
+  string status = 2;
+  bool is_already_done = 3;
+}
+
+message MarkDoneRequest {
+  string deployment_id = 1;
+  string category = 2;
+  float confidence = 3;
+  string root_cause = 4;
+  string fix_json = 5;
+  string source = 6;
+}
+
+message MarkDoneResponse {
+  bool success = 1;
+}
+
+message MarkFailedRequest {
+  string deployment_id = 1;
+  string error_reason = 2;
+}
+
+message MarkFailedResponse {
+  bool success = 1;
+}
+
+message GetDiagnosisRequest {
+  string deployment_id = 1;
+}
+
+message GetDiagnosisResponse {
+  string id = 1;
+  string status = 2;
+}

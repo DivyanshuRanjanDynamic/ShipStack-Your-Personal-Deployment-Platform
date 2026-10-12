@@ -1,0 +1,13 @@
+{
+  "deployment_id": "dep_dc03",
+  "git_url": "https://github.com/eval-fixtures/yarn-vite-outdated-plugin",
+  "framework": "vite",
+  "package_manager": "npm",
+  "node_version": "22.11.0",
+  "engines": null,
+  "scripts": { "dev": "vite", "build": "vite build", "preview": "vite preview" },
+  "build_command": "npm run build",
+  "expected_output_dir": "dist",
+  "has_lockfile": true,
+  "captured_at": "2026-10-09T15:33:05Z"
+}

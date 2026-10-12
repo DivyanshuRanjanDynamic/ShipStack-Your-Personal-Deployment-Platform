@@ -23,14 +23,44 @@ model Project {
   customDomain String?      @unique @map("custom_domain")
   createdAt    DateTime     @default(now()) @map("created_at")
   updatedAt    DateTime     @updatedAt @map("updated_at")
+  envVars      Json?        @map("env_vars")
+  buildSettings Json?       @map("build_settings")
   deployments  Deployment[]
 }
 
 model Deployment {
-  id        String           @id @default(uuid())
-  project   Project          @relation(fields: [projectId], references: [id])
-  projectId String           @map("project_id")
-  status    DeploymentStatus @default(NOT_STARTED)
-  createdAt DateTime         @default(now()) @map("created_at")
-  updatedAt DateTime         @updatedAt @map("updated_at")
+  id            String           @id @default(uuid())
+  project       Project          @relation(fields: [projectId], references: [id])
+  projectId     String           @map("project_id")
+  status        DeploymentStatus @default(NOT_STARTED)
+  ecsTaskArn    String?          @unique @map("ecs_task_arn")
+  startedAt     DateTime?        @map("started_at")
+  deadlineAt    DateTime?        @map("deadline_at")
+  timedOut      Boolean          @default(false) @map("timed_out")
+  stopCode      String?          @map("stop_code")
+  stoppedReason String?          @map("stopped_reason")
+  createdAt     DateTime         @default(now()) @map("created_at")
+  updatedAt     DateTime         @updatedAt @map("updated_at")
+  diagnosis     Diagnosis?
+}
+
+model Diagnosis {
+  id            String     @id @default(cuid())
+  deploymentId  String     @unique @map("deployment_id")
+  deployment    Deployment @relation(fields: [deploymentId], references: [id])
+  status        String     @default("PENDING") // PENDING | DONE | FAILED
+  category      String?
+  confidence    Float?
+  rootCause     String?    @map("root_cause")
+  fixJson       Json?      @map("fix_json")
+  signatureHash String?    @db.VarChar(64) @map("signature_hash")
+  source        String?    // RULES | LLM | CACHE
+  model         String?
+  tokensIn      Int?       @map("tokens_in")
+  tokensOut     Int?       @map("tokens_out")
+  latencyMs     Int?       @map("latency_ms")
+  feedback      Int?       // -1, 0, 1
+  createdAt     DateTime   @default(now()) @map("created_at")
+
+  @@index([signatureHash])
 }

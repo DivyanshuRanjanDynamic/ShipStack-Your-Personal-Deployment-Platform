@@ -1,0 +1,13 @@
+{
+  "deployment_id": "dep_dc02",
+  "git_url": "https://github.com/eval-fixtures/cra-eslint9",
+  "framework": "cra",
+  "package_manager": "npm",
+  "node_version": "22.11.0",
+  "engines": null,
+  "scripts": { "start": "react-scripts start", "build": "react-scripts build", "test": "react-scripts test" },
+  "build_command": "npm run build",
+  "expected_output_dir": "build",
+  "has_lockfile": true,
+  "captured_at": "2026-10-09T15:31:10Z"
+}

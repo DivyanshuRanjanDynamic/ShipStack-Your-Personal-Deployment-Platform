@@ -1,0 +1,34 @@
+{
+  "version": "0",
+  "id": "e7a79444-0e75-7d08-c5fc-9d34a923c736",
+  "detail-type": "ECS Task State Change",
+  "source": "aws.ecs",
+  "account": "123456789012",
+  "time": "2026-10-10T05:08:14Z",
+  "region": "eu-north-1",
+  "resources": [
+    "arn:aws:ecs:eu-north-1:123456789012:task/builder-cluster/730684f68e2b44c1940b91cad310d6fb"
+  ],
+  "detail": {
+    "clusterArn": "arn:aws:ecs:eu-north-1:123456789012:cluster/builder-cluster",
+    "connectivity": "CONNECTED",
+    "containers": [
+      {
+        "containerArn": "arn:aws:ecs:eu-north-1:123456789012:container/builder-cluster/730684f68e2b44c1940b91cad310d6fb/b07e92ea-82b1-4a50-827b-410b62610572",
+        "lastStatus": "RUNNING",
+        "name": "builder-image",
+        "image": "123456789012.dkr.ecr.eu-north-1.amazonaws.com/builder-server:latest",
+        "taskArn": "arn:aws:ecs:eu-north-1:123456789012:task/builder-cluster/730684f68e2b44c1940b91cad310d6fb"
+      }
+    ],
+    "desiredStatus": "RUNNING",
+    "group": "family:builder-task",
+    "lastStatus": "RUNNING",
+    "launchType": "FARGATE",
+    "startedAt": "2026-10-10T05:08:14.766Z",
+    "taskArn": "arn:aws:ecs:eu-north-1:123456789012:task/builder-cluster/730684f68e2b44c1940b91cad310d6fb",
+    "taskDefinitionArn": "arn:aws:ecs:eu-north-1:123456789012:task-definition/builder-task:1",
+    "updatedAt": "2026-10-10T05:08:14.766Z",
+    "version": 3
+  }
+}

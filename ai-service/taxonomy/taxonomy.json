@@ -1,0 +1,192 @@
+[
+  {
+    "id": "NODE_VERSION_MISMATCH",
+    "description": "The project requires a different Node.js version than what the build environment provides. Typically caused by an `engines` field in package.json that does not match the installed Node version.",
+    "log_signatures": [
+      "Unsupported engine",
+      "requires Node >=",
+      "node version",
+      "engines.node",
+      "incompatible node",
+      "expected node version",
+      "ERR! notsup Required:",
+      "does not satisfy the version"
+    ],
+    "typical_fix": "Set the required Node version in the project settings, or update the `engines` field in package.json to match the available version.",
+    "requires_step": ["install", "build"]
+  },
+  {
+    "id": "DEPENDENCY_CONFLICT",
+    "description": "Package installation failed due to conflicting peer dependencies or version resolution errors.",
+    "log_signatures": [
+      "ERESOLVE",
+      "peer dependency conflict",
+      "unable to resolve dependency tree",
+      "Could not resolve dependency",
+      "Conflicting peer dependency",
+      "ERESOLVE could not resolve",
+      "peer dep missing",
+      "npm ERR! ERESOLVE"
+    ],
+    "typical_fix": "Pin the conflicting dependencies to compatible versions, or use `--legacy-peer-deps` as a workaround.",
+    "requires_step": ["install"]
+  },
+  {
+    "id": "MODULE_NOT_FOUND",
+    "description": "A required module or file could not be resolved at build time. Often caused by a missing dependency, a typo in an import path, or case-sensitivity differences between local (Windows/macOS) and build (Linux) file systems.",
+    "log_signatures": [
+      "Cannot find module",
+      "Module not found",
+      "Can't resolve",
+      "Error: Cannot find module",
+      "Module build failed",
+      "ModuleNotFoundError",
+      "Cannot resolve",
+      "ENOENT"
+    ],
+    "typical_fix": "Install the missing dependency, fix the import path, or correct the filename casing to match the Linux file system (case-sensitive).",
+    "requires_step": ["build"]
+  },
+  {
+    "id": "MISSING_BUILD_SCRIPT",
+    "description": "The project's package.json does not contain the expected build script.",
+    "log_signatures": [
+      "Missing script: \"build\"",
+      "missing script: build",
+      "npm ERR! Missing script",
+      "No \"build\" script found"
+    ],
+    "typical_fix": "Add a `build` script to package.json (e.g., `\"build\": \"vite build\"` or `\"build\": \"react-scripts build\"`), or configure the correct build command in the project settings.",
+    "requires_step": ["build"]
+  },
+  {
+    "id": "WRONG_OUTPUT_DIR",
+    "description": "The build completed successfully but the expected output directory (dist/ or build/) was empty or missing. The project outputs to a non-standard directory.",
+    "log_signatures": [
+      "Neither 'dist' nor 'build' directory exists",
+      "output directory not found",
+      "no output files",
+      "upload found nothing",
+      "dist folder is empty"
+    ],
+    "typical_fix": "Configure the build tool to output to `dist/` or `build/`, or set the correct output directory in the project settings.",
+    "requires_step": ["upload"]
+  },
+  {
+    "id": "OUT_OF_MEMORY",
+    "description": "The build process ran out of memory, typically during dependency installation or the build step.",
+    "log_signatures": [
+      "heap out of memory",
+      "FATAL ERROR: CALL_AND_RETRY_LAST Allocation failed",
+      "JavaScript heap out of memory",
+      "ENOMEM",
+      "Killed",
+      "exit code 137",
+      "OOMKilled"
+    ],
+    "typical_fix": "Increase the task memory allocation, set `NODE_OPTIONS=--max-old-space-size=4096`, or reduce the build footprint by removing unused dependencies.",
+    "requires_step": ["install", "build"]
+  },
+  {
+    "id": "BUILD_TIMEOUT",
+    "description": "The build did not complete within the allowed time limit. No explicit error line is present; the task was killed externally.",
+    "log_signatures": [
+      "timeout",
+      "Task timed out",
+      "SIGTERM",
+      "operation timed out"
+    ],
+    "typical_fix": "Increase the build timeout, enable dependency caching, remove unnecessary build steps, or split the build into smaller parts.",
+    "requires_step": ["clone", "install", "build", "upload"]
+  },
+  {
+    "id": "MISSING_ENV_VAR",
+    "description": "A required environment variable was not set, causing the build or application to fail. Common with framework-specific prefixed variables (VITE_, REACT_APP_, NEXT_PUBLIC_).",
+    "log_signatures": [
+      "is not defined",
+      "undefined",
+      "process.env",
+      "VITE_",
+      "REACT_APP_",
+      "NEXT_PUBLIC_",
+      "missing environment variable",
+      "env variable not set",
+      "ReferenceError"
+    ],
+    "typical_fix": "Add the required environment variables in the project settings. Framework-specific variables must use the correct prefix (VITE_, REACT_APP_, NEXT_PUBLIC_).",
+    "requires_step": ["build"]
+  },
+  {
+    "id": "CODE_ERROR",
+    "description": "The build failed due to code-level errors such as TypeScript type errors, ESLint violations, or syntax errors. In CI environments, CRA treats all warnings as errors.",
+    "log_signatures": [
+      "TS",
+      "error TS",
+      "SyntaxError",
+      "TypeError",
+      "Treating warnings as errors because process.env.CI = true",
+      "Failed to compile",
+      "eslint",
+      "Parsing error",
+      "Build failed with",
+      "Type error:"
+    ],
+    "typical_fix": "Fix the reported code errors. For CRA projects where warnings are treated as errors, set `CI=false` or fix the warnings.",
+    "requires_step": ["build"]
+  },
+  {
+    "id": "LOCKFILE_MISMATCH",
+    "description": "The lockfile (package-lock.json, yarn.lock, pnpm-lock.yaml) is out of sync with package.json, or the wrong package manager is being used.",
+    "log_signatures": [
+      "npm ci",
+      "out of sync",
+      "lockfile",
+      "package-lock.json",
+      "yarn.lock",
+      "pnpm-lock.yaml",
+      "ERR! cipm can only install packages when your package.json and package-lock.json are in sync",
+      "This command requires an existing lockfile"
+    ],
+    "typical_fix": "Regenerate the lockfile by running `npm install` (or the corresponding package manager command) locally and commit the updated lockfile.",
+    "requires_step": ["install"]
+  },
+  {
+    "id": "REPO_ACCESS",
+    "description": "The git repository could not be cloned. It may be private, the URL may be incorrect, or authentication credentials are missing or invalid.",
+    "log_signatures": [
+      "Repository not found",
+      "fatal: repository",
+      "Authentication failed",
+      "could not read Username",
+      "Permission denied",
+      "Host key verification failed",
+      "remote: Not Found",
+      "fatal: unable to access"
+    ],
+    "typical_fix": "Verify the repository URL is correct and accessible. For private repos, configure the appropriate access token or SSH key.",
+    "requires_step": ["clone"]
+  },
+  {
+    "id": "UNSUPPORTED_PROJECT",
+    "description": "The repository is not a supported static frontend project. It may be missing a package.json, be a server-side application (Next.js SSR, Express backend), or use an unsupported framework.",
+    "log_signatures": [
+      "No package.json found",
+      "not a static site",
+      "SSR",
+      "server-side rendering",
+      "getServerSideProps",
+      "api routes",
+      "express",
+      "unsupported framework"
+    ],
+    "typical_fix": "ShipStack supports static frontend projects only. Ensure the project has a package.json with a build script that produces static output (HTML/CSS/JS).",
+    "requires_step": ["clone", "install", "build", "upload"]
+  },
+  {
+    "id": "UNKNOWN",
+    "description": "The failure does not match any known category. Manual investigation is required.",
+    "log_signatures": [],
+    "typical_fix": "Inspect the full build logs and build context manually to determine the root cause.",
+    "requires_step": ["clone", "install", "build", "upload"]
+  }
+]

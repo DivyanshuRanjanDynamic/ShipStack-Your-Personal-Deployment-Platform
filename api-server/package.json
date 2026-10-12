@@ -7,11 +7,12 @@
   "type": "commonjs",
   "main": "index.js",
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
+    "test": "node --test test/**/*.test.js",
     "postinstall": "prisma generate"
   },
   "dependencies": {
     "@aws-sdk/client-ecs": "^3.1146.0",
+    "@aws-sdk/client-sqs": "^3.1149.0",
     "@clickhouse/client": "^1.24.0",
     "@grpc/grpc-js": "^1.14.5",
     "@grpc/proto-loader": "^0.8.1",

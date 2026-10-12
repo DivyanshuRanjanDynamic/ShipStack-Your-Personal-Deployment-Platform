@@ -1,0 +1,39 @@
+[clone] Cloning into '/home/app/output'...
+[clone] remote: Enumerating objects: 124, done.
+[clone] remote: Counting objects: 100% (124/124), done.
+[clone] remote: Compressing objects: 100% (91/91), done.
+[clone] remote: Total 124 (delta 28), reused 118 (delta 22), pack-reused 0
+[clone] Receiving objects: 100% (124/124), 312.44 KiB | 6.12 MiB/s, done.
+[clone] Resolving deltas: 100% (28/28), done.
+[clone:end] exit_code=0
+[install] Found package.json in project root
+[install:start]
+[install] npm warn deprecated inflight@1.0.6: This module is not supported, and leaks memory. Do not use it. Check out lru-cache if you want a good and tested way to coalesce async requests by a key value, which is much more comprehensive and powerful.
+[install] npm warn deprecated @humanwhocodes/config-array@0.11.14: Use @eslint/config-array instead
+[install] npm warn deprecated rimraf@3.0.2: Rimraf versions prior to v4 are no longer supported
+[install] npm warn deprecated @humanwhocodes/object-schema@2.0.3: Use @eslint/object-schema instead
+[install] npm warn deprecated glob@7.2.3: Glob versions prior to v9 are no longer supported
+[install] npm error code ERESOLVE
+[install] npm error ERESOLVE could not resolve
+[install] npm error
+[install] npm error While resolving: eslint-config-react-app@7.0.1
+[install] npm error Found: eslint@9.14.0
+[install] npm error   node_modules/eslint
+[install] npm error     eslint@"^9.14.0" from the root project
+[install] npm error
+[install] npm error Could not resolve dependency:
+[install] npm error   peer eslint@"^8.0.0" from eslint-config-react-app@7.0.1
+[install] npm error   node_modules/eslint-config-react-app
+[install] npm error     eslint-config-react-app@"^7.0.1" from the root project
+[install] npm error
+[install] npm error Conflicting peer dependency: eslint@8.57.1
+[install] npm error   node_modules/eslint
+[install] npm error     peer eslint@"^8.0.0" from eslint-config-react-app@7.0.1
+[install] npm error     node_modules/eslint-config-react-app
+[install] npm error       eslint-config-react-app@"^7.0.1" from the root project
+[install] npm error
+[install] npm error Fix the upstream dependency conflict, or retry
+[install] npm error this command with --force or --legacy-peer-deps
+[install] npm error to accept an incorrect (and potentially broken) dependency resolution.
+[install:end] exit_code=1
+Build process failed! Cannot proceed to upload.

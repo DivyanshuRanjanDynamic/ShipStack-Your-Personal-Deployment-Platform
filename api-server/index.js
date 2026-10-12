@@ -12,6 +12,11 @@ const { v4: uuidv4 } = require('uuid')
 const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 
+const { createDiagnosisRouter } = require('./routes/diagnosis')
+
+require('dotenv').config();
+
+
 const app = express()
 const PORT = 9000
 
@@ -25,13 +30,16 @@ const kafka = new Kafka({
     },
     sasl: {
         mechanism: 'PLAIN',
-        username: process.env.USERNAME,
+        username: process.env.KAFKA_USERNAME,
         password: process.env.KAFKA_PASSWORD,
     }
 
 })
 
 const consumer = kafka.consumer({ groupId: 'api-server-logs-consumer' })
+const producer = kafka.producer()
+const { createDiagnosisPublisher } = require('./src/publisher')
+const publishDiagnosisRequest = createDiagnosisPublisher(prisma, producer)
 
 
 
@@ -39,15 +47,27 @@ const consumer = kafka.consumer({ groupId: 'api-server-logs-consumer' })
 
 const client = createClient({
     host: process.env.CLICKHOUSE_HOST,
-    username: process.env.USERNAME,
+    username: process.env.KAFKA_USERNAME || 'avnadmin',
     password: process.env.CLICKHOUSE_PASSWORD,
     database: "default",
 })
 
 
 
+const { SQSClient } = require('@aws-sdk/client-sqs')
+const { createWatchdog } = require('./src/watchdog')
+const { createSqsPoller } = require('./src/sqs-poller')
+
 const ecsClient = new ECSClient({
     region: process.env.ECS_REGION,
+    credentials: {
+        accessKeyId: process.env.ECS_ACCESSKEY_ID,
+        secretAccessKey: process.env.ECS_SECRET_ACCESSKEY
+    }
+})
+
+const sqsClient = new SQSClient({
+    region: process.env.AWS_REGION || process.env.ECS_REGION || 'eu-north-1',
     credentials: {
         accessKeyId: process.env.ECS_ACCESSKEY_ID,
         secretAccessKey: process.env.ECS_SECRET_ACCESSKEY
@@ -61,33 +81,125 @@ const config = {
 
 app.use(cors())
 app.use(express.json())
+app.use(createDiagnosisRouter(prisma))
+
+app.get('/projects', async (req, res) => {
+    try {
+        const projects = await prisma.project.findMany({
+            include: {
+                deployments: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            },
+            orderBy: { updatedAt: 'desc' }
+        })
+        return res.json({ status: "success", data: { projects } })
+    } catch (err) {
+        return res.status(500).json({ error: "Failed to fetch projects", details: err.message })
+    }
+})
+
+app.get('/project/:id', async (req, res) => {
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id: req.params.id },
+            include: {
+                deployments: {
+                    orderBy: { createdAt: 'desc' },
+                    take: 1
+                }
+            }
+        })
+        if (!project) return res.status(404).json({ error: "Project not found" })
+        return res.json({ status: "success", data: { project } })
+    } catch (err) {
+        return res.status(500).json({ error: "Failed to fetch project", details: err.message })
+    }
+})
+
+app.get('/project/:id/deployments', async (req, res) => {
+    try {
+        const deployments = await prisma.deployment.findMany({
+            where: { projectId: req.params.id },
+            orderBy: { createdAt: 'desc' }
+        })
+        return res.json({ status: "success", data: { deployments } })
+    } catch (err) {
+        return res.status(500).json({ error: "Failed to fetch deployments", details: err.message })
+    }
+})
+
+app.get('/project/:id/env', async (req, res) => {
+    try {
+        const project = await prisma.project.findUnique({
+            where: { id: req.params.id },
+            select: { envVars: true }
+        })
+        if (!project) return res.status(404).json({ error: "Project not found" })
+        return res.json({ status: "success", data: { envVars: project.envVars || [] } })
+    } catch (err) {
+        return res.status(500).json({ error: "Failed to fetch env vars", details: err.message })
+    }
+})
+
+app.put('/project/:id/env', async (req, res) => {
+    try {
+        const { envVars } = req.body
+        const updated = await prisma.project.update({
+            where: { id: req.params.id },
+            data: { envVars }
+        })
+        return res.json({ status: "success", data: { envVars: updated.envVars } })
+    } catch (err) {
+        return res.status(500).json({ error: "Failed to update env vars", details: err.message })
+    }
+})
 
 app.post('/project', async (req, res) => {
 
     const schema = z.object({
         gitURL: z.string().url(),
-        name: z.string()
+        name: z.string(),
+        buildSettings: z.any().optional(),
+        envVars: z.any().optional()
     })
 
     const safeParseResult = schema.safeParse(req.body)
 
     if (safeParseResult.error) return res.status(400).json({ message: `Invalid input ${safeParseResult.error}` })
 
-    const { gitURL, name } = safeParseResult.data
+    const { gitURL, name, buildSettings, envVars } = safeParseResult.data
 
-    // now for this gitURL we have to make a deployments / trigger a deployment
+    try {
+        const project = await prisma.project.create({
+            data: {
+                gitUrl: gitURL,
+                name: name,
+                subDomain: generateSlug(),
+                buildSettings: buildSettings || null,
+                envVars: envVars || null
+            },
+        })
 
-    const project = await prisma.project.create({
-        data: {
-            gitUrl: gitURL,
-            name: name,
-            subDomain: generateSlug()
-        },
-    })
-
-    return res.json({ status: "success", data: { project } })
-
+        return res.json({ status: "success", data: { project } })
+    } catch (err) {
+        return res.status(500).json({ error: "Failed to create project", details: err.message })
+    }
 })
+
+function parseEnvList(val) {
+    if (!val) return [];
+    if (Array.isArray(val)) return val;
+    try {
+        const normalized = val.replace(/'/g, '"');
+        const parsed = JSON.parse(normalized);
+        if (Array.isArray(parsed)) return parsed;
+    } catch (e) {
+        return val.split(',').map(s => s.trim().replace(/^['"\[]|['"\]]$/g, '')).filter(Boolean);
+    }
+    return [val];
+}
 
 app.post('/deploy', async (req, res) => {
 
@@ -100,18 +212,6 @@ app.post('/deploy', async (req, res) => {
     // fetch project from db
     const project = await prisma.project.findUnique({ where: { id: projectId } })
     if (!project) return res.status(404).json({ message: 'Project not found' })
-
-    // Check is there any deploynment that is InProgress / Queued
-
-    const runningDeployment = await prisma.deployment.findFirst({
-        where: {
-            projectId: projectId,
-            status: {
-                in: ['QUEUED', 'IN_PROGRESS']
-            }
-        }
-    })
-    if (runningDeployment) return res.status(400).json({ message: 'Already deploying' })
 
     // deployemnt create in db
 
@@ -133,11 +233,11 @@ app.post('/deploy', async (req, res) => {
         networkConfiguration: {
             awsvpcConfiguration: {
                 assignPublicIp: 'ENABLED',
-                subnets: process.env.ECS_SUBNETS,
-                securityGroups: process.env.ECS_SECURITY_GROUP,
+                subnets: parseEnvList(process.env.ECS_SUBNETS),
+                securityGroups: parseEnvList(process.env.ECS_SECURITY_GROUP),
             },
         },
-
+        tags: [{ key: "deployment_id", value: newDeploymnet.id }],
         overrides: {
             containerOverrides: [
                 {
@@ -176,9 +276,15 @@ app.post('/deploy', async (req, res) => {
                             value: process.env.KAFKA_PASSWORD,
                         },
                         {
-                            name: 'USERNAME',
-                            value: process.env.USERNAME,
-                        }
+                            name: 'KAFKA_USERNAME',
+                            value: process.env.KAFKA_USERNAME,
+                        },
+                        ...(Array.isArray(project.envVars)
+                            ? project.envVars
+                                .filter(e => e && e.key)
+                                .map(e => ({ name: String(e.key), value: String(e.value ?? '') }))
+                            : []
+                        )
                     ],
                 },
             ],
@@ -186,15 +292,51 @@ app.post('/deploy', async (req, res) => {
 
     })
 
+    let response;
     try {
-        await ecsClient.send(command);
+        response = await ecsClient.send(command);
+
+        const taskArn = response.tasks?.[0]?.taskArn;
+
+        if (!taskArn) {
+            const reason = response.failures?.[0]?.reason || 'No task was started';
+            throw new Error(`ECS did not start a task: ${reason}`);
+        }
+        // Save the mapping that lets an ECS event find this deployment.
+        // The build is already running, so a DB hiccup here must not fail the request.
+        await prisma.deployment
+            .update({
+                where: { id: newDeploymnet.id },
+                data: { ecsTaskArn: taskArn },
+            })
+            .catch((e) => console.error('Failed to save ecsTaskArn:', e));
+
         return res.json({ status: 'queued', data: { deploymentID: newDeploymnet.id } })
+
     } catch (err) {
         console.error("ECS RunTask failed:", err);
+        const failureCode = response?.failures?.[0]?.reason || 'RUNTASK_FAILED';
         await prisma.deployment.update({
             where: { id: newDeploymnet.id },
-            data: { status: 'FAILURE' }
+            data: {
+                status: 'FAILURE',
+                stopCode: failureCode,
+                stoppedReason: err.message,
+            }
         }).catch(e => console.error("Failed to set deployment status to FAILURE:", e));
+
+        // Publish diagnosis request on failure (non-blocking)
+        publishDiagnosisRequest({
+            deploymentId: newDeploymnet.id,
+            projectId: projectId,
+            gitUrl: project.gitUrl,
+            failedStep: 'clone',
+            exitCode: 1,
+            failureReason: 'NONZERO_EXIT',
+            stopCode: failureCode,
+            stoppedReason: err.message,
+        }).catch(e => console.error("Failed to publish diagnosis request:", e));
+
         return res.status(500).json({ error: "Failed to spin build container", details: err.message });
     }
 })
@@ -228,6 +370,7 @@ app.get('/logs/:id', async (req, res) => {
 
 
 async function initKafkaConsumer() {
+    await producer.connect().catch(err => console.error("Kafka Producer connect error:", err));
     await consumer.connect();
     await consumer.subscribe({ topics: ['container-logs'], fromBeginning: false })
 
@@ -245,7 +388,8 @@ async function initKafkaConsumer() {
             for (const message of messages) {
                 try {
                     const stringMessage = message.value.toString();
-                    const { log, PROJECT_ID, DEPLOYMENT_ID } = JSON.parse(stringMessage);
+                    const parsedLogMessage = JSON.parse(stringMessage);
+                    const { log, PROJECT_ID, DEPLOYMENT_ID, step, event, exit_code, failure_reason } = parsedLogMessage;
 
                     if (PROJECT_ID && DEPLOYMENT_ID) {
                         valuesToInsert.push({
@@ -266,11 +410,28 @@ async function initKafkaConsumer() {
                                 where: { id: DEPLOYMENT_ID },
                                 data: { status: 'SUCCESS' }
                             }).catch(err => console.error(`Error updating status to SUCCESS:`, err.message));
-                        } else if (log.includes('Build process failed!') || log.includes('Error: Neither')) {
-                            await prisma.deployment.update({
-                                where: { id: DEPLOYMENT_ID },
+                        } else if (log.includes('Build process failed!') || log.includes('Error: Neither') || (event === 'step_end' && exit_code !== 0)) {
+                            // Atomically mark deployment as FAILURE.
+                            // If update count === 1, this is the first failure signal: publish diagnosis request.
+                            // If update count === 0, it was already marked FAILURE by an earlier log line: skip duplicate publish.
+                            const updateResult = await prisma.deployment.updateMany({
+                                where: { id: DEPLOYMENT_ID, status: { not: 'FAILURE' } },
                                 data: { status: 'FAILURE' }
-                            }).catch(err => console.error(`Error updating status to FAILURE:`, err.message));
+                            }).catch(err => {
+                                console.error(`Error updating status to FAILURE:`, err.message);
+                                return { count: 0 };
+                            });
+
+                            if (updateResult && updateResult.count === 1) {
+                                // Layer A: publish diagnosis-requests when build fails
+                                publishDiagnosisRequest({
+                                    deploymentId: DEPLOYMENT_ID,
+                                    projectId: PROJECT_ID,
+                                    failedStep: step || 'build',
+                                    exitCode: typeof exit_code === 'number' ? exit_code : 1,
+                                    failureReason: failure_reason || 'NONZERO_EXIT',
+                                }).catch(err => console.error(`Error publishing diagnosis request for ${DEPLOYMENT_ID}:`, err.message));
+                            }
                         }
                     }
 
@@ -321,6 +482,12 @@ const packageDefinition = protoLoader.loadSync(
 )
 const projectProto = grpc.loadPackageDefinition(packageDefinition).project
 
+const diagnosisPackageDefinition = protoLoader.loadSync(
+    path.join(__dirname, '../proto/diagnosis.proto'),
+    { keepCase: true, longs: String, enums: String, defaults: true, oneofs: true }
+)
+const diagnosisProto = grpc.loadPackageDefinition(diagnosisPackageDefinition).diagnosis
+
 const grpcServer = new grpc.Server()
 
 grpcServer.addService(projectProto.ProjectService.service, {
@@ -353,6 +520,103 @@ grpcServer.addService(projectProto.ProjectService.service, {
     }
 })
 
+grpcServer.addService(diagnosisProto.DiagnosisService.service, {
+    UpsertPending: async (call, callback) => {
+        try {
+            const deploymentId = call.request.deployment_id;
+            const existing = await prisma.diagnosis.findUnique({
+                where: { deploymentId }
+            });
+
+            if (existing) {
+                return callback(null, {
+                    id: existing.id,
+                    status: existing.status,
+                    is_already_done: existing.status === 'DONE'
+                });
+            }
+
+            const created = await prisma.diagnosis.upsert({
+                where: { deploymentId },
+                update: {},
+                create: {
+                    deploymentId,
+                    status: 'PENDING',
+                    source: 'STUB',
+                }
+            });
+
+            callback(null, {
+                id: created.id,
+                status: created.status,
+                is_already_done: created.status === 'DONE'
+            });
+        } catch (err) {
+            console.error('gRPC UpsertPending error:', err);
+            callback({ code: grpc.status.INTERNAL, details: err.message });
+        }
+    },
+    MarkDone: async (call, callback) => {
+        try {
+            const { deployment_id, category, confidence, root_cause, fix_json, source } = call.request;
+            let parsedFixJson = {};
+            try {
+                parsedFixJson = fix_json ? JSON.parse(fix_json) : {};
+            } catch (e) {
+                parsedFixJson = {};
+            }
+
+            await prisma.diagnosis.update({
+                where: { deploymentId: deployment_id },
+                data: {
+                    status: 'DONE',
+                    category,
+                    confidence: typeof confidence === 'number' ? confidence : 0,
+                    rootCause: root_cause,
+                    fixJson: parsedFixJson,
+                    source: source || 'STUB',
+                }
+            });
+            callback(null, { success: true });
+        } catch (err) {
+            console.error('gRPC MarkDone error:', err);
+            callback({ code: grpc.status.INTERNAL, details: err.message });
+        }
+    },
+    MarkFailed: async (call, callback) => {
+        try {
+            const { deployment_id, error_reason } = call.request;
+            await prisma.diagnosis.update({
+                where: { deploymentId: deployment_id },
+                data: {
+                    status: 'FAILED',
+                    rootCause: error_reason,
+                }
+            });
+            callback(null, { success: true });
+        } catch (err) {
+            console.error('gRPC MarkFailed error:', err);
+            callback({ code: grpc.status.INTERNAL, details: err.message });
+        }
+    },
+    GetDiagnosis: async (call, callback) => {
+        try {
+            const deploymentId = call.request.deployment_id;
+            const diag = await prisma.diagnosis.findUnique({
+                where: { deploymentId },
+                select: { id: true, status: true }
+            });
+            if (!diag) {
+                return callback({ code: grpc.status.NOT_FOUND, details: 'Diagnosis not found' });
+            }
+            callback(null, { id: diag.id, status: diag.status });
+        } catch (err) {
+            console.error('gRPC GetDiagnosis error:', err);
+            callback({ code: grpc.status.INTERNAL, details: err.message });
+        }
+    }
+})
+
 grpcServer.bindAsync(
     `0.0.0.0:${GRPC_PORT}`,
     grpc.ServerCredentials.createInsecure(),
@@ -366,3 +630,33 @@ grpcServer.bindAsync(
 )
 
 app.listen(PORT, () => console.log(` API Server running on port ${PORT}`))
+
+// ─── Watchdog & SQS Poller Background Services ───
+const watchdog = createWatchdog({
+    prisma,
+    ecsClient,
+    cluster: config.cluster,
+    intervalMs: 30000,
+    provisioningDeadlineMinutes: parseInt(process.env.PROVISIONING_DEADLINE_MINUTES || '10', 10),
+})
+
+const sqsPoller = createSqsPoller({
+    sqsClient,
+    queueUrl: process.env.SQS_QUEUE_URL,
+    prisma,
+    publishDiagnosisRequest,
+    buildDeadlineMinutes: parseInt(process.env.BUILD_DEADLINE_MINUTES || '15', 10),
+})
+
+watchdog.start()
+if (process.env.SQS_QUEUE_URL) {
+    sqsPoller.start()
+}
+
+function handleShutdown() {
+    console.log('Shutting down background services gracefully...')
+    watchdog.stop()
+    sqsPoller.stop()
+}
+process.on('SIGINT', handleShutdown)
+process.on('SIGTERM', handleShutdown)

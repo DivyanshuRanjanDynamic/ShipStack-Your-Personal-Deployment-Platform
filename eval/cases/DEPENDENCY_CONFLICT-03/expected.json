@@ -1,0 +1,10 @@
+{
+  "id": "DEPENDENCY_CONFLICT-03",
+  "category": "DEPENDENCY_CONFLICT",
+  "secondary_categories": ["LOCKFILE_MISMATCH"],
+  "root_cause_must_mention": ["@vitejs/plugin-react", "vite", "peer"],
+  "fix_must_mention": ["@vitejs/plugin-react", "upgrade"],
+  "difficulty": "hard",
+  "framework": "vite",
+  "package_manager": "npm"
+}

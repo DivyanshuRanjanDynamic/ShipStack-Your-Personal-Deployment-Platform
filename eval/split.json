@@ -1,0 +1,12 @@
+{
+  "dev": [
+    "DEPENDENCY_CONFLICT-01",
+    "DEPENDENCY_CONFLICT-02",
+    "MODULE_NOT_FOUND-01",
+    "MODULE_NOT_FOUND-02"
+  ],
+  "test": [
+    "DEPENDENCY_CONFLICT-03",
+    "MODULE_NOT_FOUND-03"
+  ]
+}

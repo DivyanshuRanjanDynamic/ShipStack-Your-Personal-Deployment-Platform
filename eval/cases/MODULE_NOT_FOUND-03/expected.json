@@ -1,0 +1,10 @@
+{
+  "id": "MODULE_NOT_FOUND-03",
+  "category": "MODULE_NOT_FOUND",
+  "secondary_categories": [],
+  "root_cause_must_mention": ["formatDate", "import path", "resolve"],
+  "fix_must_mention": ["import", "path"],
+  "difficulty": "hard",
+  "framework": "cra",
+  "package_manager": "npm"
+}

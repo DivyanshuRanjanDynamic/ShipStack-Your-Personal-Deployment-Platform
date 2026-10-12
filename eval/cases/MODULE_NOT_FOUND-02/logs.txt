@@ -1,0 +1,40 @@
+[clone] Cloning into '/home/app/output'...
+[clone] remote: Enumerating objects: 93, done.
+[clone] remote: Counting objects: 100% (93/93), done.
+[clone] remote: Compressing objects: 100% (72/72), done.
+[clone] remote: Total 93 (delta 15), reused 90 (delta 12), pack-reused 0
+[clone] Receiving objects: 100% (93/93), 274.55 KiB | 4.78 MiB/s, done.
+[clone] Resolving deltas: 100% (15/15), done.
+[clone:end] exit_code=0
+[install] Found package.json in project root
+[install:start]
+[install] added 312 packages, and audited 313 packages in 18s
+[install] 51 packages are looking for funding
+[install]   run `npm fund` for details
+[install] 2 moderate severity vulnerabilities
+[install] To address all issues, run:
+[install]   npm audit fix
+[install] Run `npm audit` for details.
+[install:end] exit_code=0
+[build] Running build command: npm run build
+[build:start]
+[build] > dashboard@0.1.0 build
+[build] > vite build
+[build] vite v5.4.11 building for production...
+[build] transforming...
+[build] ✓ 34 modules transformed.
+[build] x Build failed in 1.24s
+[build] [plugin:vite:import-analysis] Failed to resolve import "./components/Navbar" from "src/App.tsx". Does the file exist?
+[build]
+[build]   file: /home/app/output/src/App.tsx:3:0
+[build]
+[build]   1  |  import React from 'react';
+[build]   2  |  import { BrowserRouter, Routes, Route } from 'react-router-dom';
+[build]   3  |  import Navbar from './components/Navbar';
+[build]      |                      ^
+[build]   4  |  import Dashboard from './pages/Dashboard';
+[build]   5  |  import Settings from './pages/Settings';
+[build]
+[build] Hint: The file "/home/app/output/src/components/navbar.tsx" exists on disk, but the import uses different casing. File system is case-sensitive on this platform.
+[build:end] exit_code=1
+Build process failed! Cannot proceed to upload.

@@ -1,0 +1,40 @@
+[clone] Cloning into '/home/app/output'...
+[clone] remote: Enumerating objects: 87, done.
+[clone] remote: Counting objects: 100% (87/87), done.
+[clone] remote: Compressing objects: 100% (64/64), done.
+[clone] remote: Total 87 (delta 12), reused 87 (delta 12), pack-reused 0
+[clone] Receiving objects: 100% (87/87), 245.18 KiB | 4.91 MiB/s, done.
+[clone] Resolving deltas: 100% (12/12), done.
+[clone:end] exit_code=0
+[install] Found package.json in project root
+[install:start]
+[install] npm warn config production Use `--omit=dev` instead.
+[install] npm warn ERESOLVE overriding peer dependency
+[install] npm error code ERESOLVE
+[install] npm error ERESOLVE could not resolve
+[install] npm error
+[install] npm error While resolving: react-beautiful-dnd@13.1.1
+[install] npm error Found: react@18.3.1
+[install] npm error   node_modules/react
+[install] npm error     react@"^18.3.1" from the root project
+[install] npm error
+[install] npm error Could not resolve dependency:
+[install] npm error   peer react@"^16.8.5 || ^17.0.0" from react-beautiful-dnd@13.1.1
+[install] npm error   node_modules/react-beautiful-dnd
+[install] npm error     react-beautiful-dnd@"^13.1.1" from the root project
+[install] npm error
+[install] npm error Conflicting peer dependency: react@17.0.2
+[install] npm error   node_modules/react
+[install] npm error     peer react@"^16.8.5 || ^17.0.0" from react-beautiful-dnd@13.1.1
+[install] npm error     node_modules/react-beautiful-dnd
+[install] npm error       react-beautiful-dnd@"^13.1.1" from the root project
+[install] npm error
+[install] npm error Fix the upstream dependency conflict, or retry
+[install] npm error this command with --force or --legacy-peer-deps
+[install] npm error to accept an incorrect (and potentially broken) dependency resolution.
+[install] npm error
+[install] npm error
+[install] npm error For a full report see:
+[install] npm error /home/appuser/.npm/_logs/2026-10-09T15_28_42_891Z-eresolve-report.txt
+[install:end] exit_code=1
+Build process failed! Cannot proceed to upload.

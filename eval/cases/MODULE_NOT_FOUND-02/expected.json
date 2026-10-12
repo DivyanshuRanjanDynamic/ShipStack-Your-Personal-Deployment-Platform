@@ -1,0 +1,10 @@
+{
+  "id": "MODULE_NOT_FOUND-02",
+  "category": "MODULE_NOT_FOUND",
+  "secondary_categories": [],
+  "root_cause_must_mention": ["case", "Navbar", "navbar"],
+  "fix_must_mention": ["rename", "casing"],
+  "difficulty": "easy",
+  "framework": "vite",
+  "package_manager": "npm"
+}

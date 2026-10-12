@@ -1,0 +1,10 @@
+{
+  "id": "MODULE_NOT_FOUND-01",
+  "category": "MODULE_NOT_FOUND",
+  "secondary_categories": [],
+  "root_cause_must_mention": ["framer-motion", "missing", "dependency"],
+  "fix_must_mention": ["npm install", "framer-motion"],
+  "difficulty": "easy",
+  "framework": "vite",
+  "package_manager": "npm"
+}

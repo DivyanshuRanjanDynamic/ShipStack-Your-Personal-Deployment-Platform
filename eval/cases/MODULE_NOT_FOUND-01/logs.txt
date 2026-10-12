@@ -1,0 +1,38 @@
+[clone] Cloning into '/home/app/output'...
+[clone] remote: Enumerating objects: 71, done.
+[clone] remote: Counting objects: 100% (71/71), done.
+[clone] remote: Compressing objects: 100% (54/54), done.
+[clone] remote: Total 71 (delta 11), reused 69 (delta 9), pack-reused 0
+[clone] Receiving objects: 100% (71/71), 221.33 KiB | 5.02 MiB/s, done.
+[clone] Resolving deltas: 100% (11/11), done.
+[clone:end] exit_code=0
+[install] Found package.json in project root
+[install:start]
+[install] added 267 packages, and audited 268 packages in 14s
+[install] 42 packages are looking for funding
+[install]   run `npm fund` for details
+[install] found 0 vulnerabilities
+[install:end] exit_code=0
+[build] Running build command: npm run build
+[build:start]
+[build] > todo-app@0.1.0 build
+[build] > vite build
+[build] vite v5.4.11 building for production...
+[build] transforming...
+[build] ✓ 14 modules transformed.
+[build] x Build failed in 892ms
+[build] error during build:
+[build] [vite]: Rollup failed to resolve import "framer-motion" from "src/components/AnimatedList.tsx".
+[build] This is most likely unintended because it can break your application at runtime.
+[build] If you do want to externalize this dependency explicitly add it
+[build] to `build.rollupOptions.external`
+[build]   file: /home/app/output/src/components/AnimatedList.tsx:2:0
+[build]
+[build]   1  |  import React from 'react';
+[build]   2  |  import { motion, AnimatePresence } from 'framer-motion';
+[build]      |  ^
+[build]   3  |  import type { Todo } from '../types';
+[build]   4  |
+[build] error: Could not resolve "framer-motion" from "src/components/AnimatedList.tsx"
+[build:end] exit_code=1
+Build process failed! Cannot proceed to upload.

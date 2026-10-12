@@ -1,0 +1,39 @@
+[clone] Cloning into '/home/app/output'...
+[clone] remote: Enumerating objects: 108, done.
+[clone] remote: Counting objects: 100% (108/108), done.
+[clone] remote: Compressing objects: 100% (81/81), done.
+[clone] remote: Total 108 (delta 19), reused 105 (delta 16), pack-reused 0
+[clone] Receiving objects: 100% (108/108), 341.09 KiB | 5.66 MiB/s, done.
+[clone] Resolving deltas: 100% (19/19), done.
+[clone:end] exit_code=0
+[install] Found package.json in project root
+[install:start]
+[install] added 1412 packages, and audited 1413 packages in 47s
+[install] 198 packages are looking for funding
+[install]   run `npm fund` for details
+[install] 8 vulnerabilities (2 moderate, 6 high)
+[install] To address all issues (including breaking changes), run:
+[install]   npm audit fix --force
+[install] Run `npm audit` for details.
+[install:end] exit_code=0
+[build] Running build command: npm run build
+[build:start]
+[build] > my-app@0.1.0 build
+[build] > react-scripts build
+[build] Creating an optimized production build...
+[build] Compiling...
+[build] Failed to compile.
+[build]
+[build] Module not found: Error: Can't resolve './utils/formatDate' in '/home/app/output/src/components'
+[build]
+[build] WARNING in ./src/components/EventCard.tsx
+[build] Module Warning (from ./node_modules/source-map-loader/dist/cjs.js):
+[build] Failed to parse source map from '/home/app/output/src/utils/formatdate.ts' - Error: ENOENT: no such file or directory
+[build]
+[build] ERROR in ./src/components/EventCard.tsx 5:0-47
+[build] Module not found: Error: Can't resolve './utils/formatDate' in '/home/app/output/src/components'
+[build]  @ ./src/App.tsx 8:0-48 24:39-48
+[build]
+[build] webpack compiled with 1 error and 1 warning
+[build:end] exit_code=1
+Build process failed! Cannot proceed to upload.

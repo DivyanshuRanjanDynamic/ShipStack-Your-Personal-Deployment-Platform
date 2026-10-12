@@ -1,0 +1,38 @@
+{
+  "version": "0",
+  "id": "c3d4e5f6-a7b8-9012-abcd-ef0123456789",
+  "detail-type": "ECS Task State Change",
+  "source": "aws.ecs",
+  "account": "123456789012",
+  "time": "2026-10-10T05:08:49Z",
+  "region": "eu-north-1",
+  "resources": [
+    "arn:aws:ecs:eu-north-1:123456789012:task/builder-cluster/730684f68e2b44c1940b91cad310d6fb"
+  ],
+  "detail": {
+    "clusterArn": "arn:aws:ecs:eu-north-1:123456789012:cluster/builder-cluster",
+    "connectivity": "CONNECTED",
+    "containers": [
+      {
+        "containerArn": "arn:aws:ecs:eu-north-1:123456789012:container/builder-cluster/730684f68e2b44c1940b91cad310d6fb/b07e92ea-82b1-4a50-827b-410b62610572",
+        "exitCode": 143,
+        "lastStatus": "STOPPED",
+        "name": "builder-image",
+        "image": "123456789012.dkr.ecr.eu-north-1.amazonaws.com/builder-server:latest",
+        "taskArn": "arn:aws:ecs:eu-north-1:123456789012:task/builder-cluster/730684f68e2b44c1940b91cad310d6fb"
+      }
+    ],
+    "desiredStatus": "STOPPED",
+    "group": "family:builder-task",
+    "lastStatus": "STOPPED",
+    "launchType": "FARGATE",
+    "startedAt": "2026-10-10T05:08:14.766Z",
+    "stoppedAt": "2026-10-10T05:08:49.287Z",
+    "stoppedReason": "Task stopped by user: ShipStack build deadline exceeded",
+    "stopCode": "UserInitiated",
+    "taskArn": "arn:aws:ecs:eu-north-1:123456789012:task/builder-cluster/730684f68e2b44c1940b91cad310d6fb",
+    "taskDefinitionArn": "arn:aws:ecs:eu-north-1:123456789012:task-definition/builder-task:1",
+    "updatedAt": "2026-10-10T05:08:49.287Z",
+    "version": 5
+  }
+}
