@@ -16,6 +16,7 @@ import {
 } from 'lucide-react';
 import { GithubIcon, LinkedinIcon } from '../components/BrandIcons';
 import ArchitectureFlow from '../components/ArchitectureFlow';
+import EnvironmentShowcase from '../components/EnvironmentShowcase';
 import shipstackInfraImg from '../assets/shipstack-infrastructure-DpfR2VNQ.jpg';
 import '../styles/nebula.css';
 
@@ -106,6 +107,7 @@ export default function HomePage({ onOpenDeploy }) {
           </div>
         </section>
 
+
         {/* Framework Band */}
         <section className="framework-band">
           <span className="marketing-eyebrow">YOUR FRAMEWORK. YOUR WORKFLOW.</span>
@@ -118,11 +120,12 @@ export default function HomePage({ onOpenDeploy }) {
           </div>
         </section>
 
+        <EnvironmentShowcase />
+
         {/* The Platform Offerings Grid */}
         <section className="offerings-section">
           <div className="marketing-section-heading">
             <div>
-              <span className="marketing-eyebrow">THE PLATFORM</span>
               <h2>Everything between idea and impact.</h2>
             </div>
             <Link to="/overview" className="text-link">
