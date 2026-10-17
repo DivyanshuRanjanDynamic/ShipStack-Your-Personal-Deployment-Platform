@@ -132,6 +132,7 @@ export default function DiagnosisPage() {
       STUB: 'Deterministic Rules',
       RULES: 'Rule Engine',
       LLM: 'AI Language Model',
+      LLM_FALLBACK: 'Rule Engine Fallback',
       CACHE: 'Cached Result'
     };
     return map[source] || source;
@@ -257,16 +258,16 @@ export default function DiagnosisPage() {
               <span className="pipeline-connector active"></span>
               <div className="pipeline-node active">
                 <Search size={14} />
-                <span>RAG Search</span>
+                <span>Rules Engine</span>
               </div>
               <span className="pipeline-connector"></span>
               <div className="pipeline-node">
                 <Sparkles size={14} />
-                <span>Diagnosis</span>
+                <span>AI Synthesis</span>
               </div>
             </div>
             <p style={{ color: '#888', fontSize: '13px', textAlign: 'center', marginTop: '20px' }}>
-              AI diagnosis pipeline is running... Analyzing build logs and querying RAG vector index.
+              AI diagnosis pipeline is running... Preprocessing build logs, evaluating heuristic rules, and synthesizing root cause.
             </p>
           </div>
         )}
@@ -412,6 +413,27 @@ export default function DiagnosisPage() {
                             </span>
                           </div>
                         </div>
+
+                        {/* Human Review Required Banner */}
+                        {diagnosis.diagnosis.needs_human && (
+                          <div style={{
+                            background: 'rgba(245, 158, 11, 0.1)',
+                            border: '1px solid rgba(245, 158, 11, 0.3)',
+                            borderRadius: '8px',
+                            padding: '10px 14px',
+                            marginBottom: '14px',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '10px',
+                            fontSize: '12px',
+                            color: '#fcd34d'
+                          }}>
+                            <AlertCircle size={16} color="#f59e0b" style={{ flexShrink: 0 }} />
+                            <span>
+                              <strong>Human Review Advised:</strong> The AI diagnosis pipeline flagged high uncertainty or used a heuristic fallback. Please inspect the build logs to confirm root cause.
+                            </span>
+                          </div>
+                        )}
 
                         {/* Root Cause */}
                         <div className="diag-root-cause-card">

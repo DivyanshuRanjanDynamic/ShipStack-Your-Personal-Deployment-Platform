@@ -176,7 +176,8 @@ describe('GET /deployments/:id/diagnosis', () => {
             evidence: [
                 { line: 42, text: 'ERR! Unsupported engine: node 16' }
             ],
-            source: 'STUB'
+            source: 'STUB',
+            needs_human: false
         });
 
         // Ensure internal fields are stripped

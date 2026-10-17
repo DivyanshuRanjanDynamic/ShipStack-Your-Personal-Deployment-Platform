@@ -558,7 +558,11 @@ grpcServer.addService(diagnosisProto.DiagnosisService.service, {
     },
     MarkDone: async (call, callback) => {
         try {
-            const { deployment_id, category, confidence, root_cause, fix_json, source } = call.request;
+            const {
+                deployment_id, category, confidence, root_cause, fix_json, source,
+                signature_hash, model, tokens_in, tokens_out, latency_ms,
+                prompt_version, pipeline_version, needs_human,
+            } = call.request;
             let parsedFixJson = {};
             try {
                 parsedFixJson = fix_json ? JSON.parse(fix_json) : {};
@@ -575,6 +579,15 @@ grpcServer.addService(diagnosisProto.DiagnosisService.service, {
                     rootCause: root_cause,
                     fixJson: parsedFixJson,
                     source: source || 'STUB',
+                    // Phase 2 fields (optional, only set when provided)
+                    ...(signature_hash ? { signatureHash: signature_hash } : {}),
+                    ...(model ? { model } : {}),
+                    ...(tokens_in ? { tokensIn: tokens_in } : {}),
+                    ...(tokens_out ? { tokensOut: tokens_out } : {}),
+                    ...(latency_ms ? { latencyMs: latency_ms } : {}),
+                    ...(prompt_version ? { promptVersion: prompt_version } : {}),
+                    ...(pipeline_version ? { pipelineVersion: pipeline_version } : {}),
+                    ...(needs_human !== undefined ? { needsHuman: needs_human } : {}),
                 }
             });
             callback(null, { success: true });

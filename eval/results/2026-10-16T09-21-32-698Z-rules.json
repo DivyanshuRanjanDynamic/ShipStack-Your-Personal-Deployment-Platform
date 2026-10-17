@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-10-16T09:21:32.698Z",
+  "mode": "rules",
+  "split": "test",
+  "model": "none",
+  "promptVersion": "2.0.0",
+  "pipelineVersion": "2.0.0",
+  "metrics": {
+    "totalCases": 2,
+    "overallAccuracy": 0.5,
+    "categoryAccuracy": {
+      "DEPENDENCY_CONFLICT": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      },
+      "MODULE_NOT_FOUND": {
+        "total": 1,
+        "correct": 0,
+        "accuracy": 0
+      }
+    },
+    "difficultyAccuracy": {
+      "hard": {
+        "total": 2,
+        "correct": 1,
+        "accuracy": 0.5
+      }
+    },
+    "confusionMatrix": {
+      "DEPENDENCY_CONFLICT": {
+        "DEPENDENCY_CONFLICT": 1
+      },
+      "MODULE_NOT_FOUND": {
+        "UNKNOWN": 1
+      }
+    },
+    "rootCauseScore": {
+      "averageScore": 0,
+      "fullMatchCount": 0,
+      "partialMatchCount": 0,
+      "noMatchCount": 2,
+      "scores": {
+        "DEPENDENCY_CONFLICT-03": 0,
+        "MODULE_NOT_FOUND-03": 0
+      }
+    },
+    "evidenceValidity": {
+      "totalEvidenceCited": 8,
+      "validEvidenceCount": 8,
+      "validityRate": 1
+    },
+    "jsonValidityRate": 1,
+    "retryRate": 0,
+    "fallbackRate": 0,
+    "escalationRate": 0,
+    "latency": {
+      "meanMs": 18,
+      "p50Ms": 18,
+      "p95Ms": 32,
+      "minMs": 3,
+      "maxMs": 33
+    },
+    "tokens": {
+      "totalIn": 0,
+      "totalOut": 0,
+      "meanIn": 0,
+      "meanOut": 0
+    },
+    "cost": {
+      "totalUsd": 0,
+      "meanUsd": 0
+    }
+  },
+  "cases": [
+    {
+      "caseId": "DEPENDENCY_CONFLICT-03",
+      "expectedCategory": "DEPENDENCY_CONFLICT",
+      "predictedCategory": "DEPENDENCY_CONFLICT",
+      "isCorrect": true,
+      "confidence": 0.95,
+      "source": "RULES",
+      "needsHuman": false,
+      "rootCauseScore": 0,
+      "evidenceCited": 8,
+      "latencyMs": 33,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    },
+    {
+      "caseId": "MODULE_NOT_FOUND-03",
+      "expectedCategory": "MODULE_NOT_FOUND",
+      "predictedCategory": "UNKNOWN",
+      "isCorrect": false,
+      "confidence": 0,
+      "source": "RULES",
+      "needsHuman": true,
+      "rootCauseScore": 0,
+      "evidenceCited": 0,
+      "latencyMs": 3,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    }
+  ]
+}

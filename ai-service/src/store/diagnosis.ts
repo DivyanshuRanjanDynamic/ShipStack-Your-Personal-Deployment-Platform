@@ -32,6 +32,14 @@ export interface DiagnosisStore {
     rootCause: string;
     fixJson: Record<string, unknown>;
     source: string;
+    signatureHash?: string;
+    model?: string | null;
+    tokensIn?: number | null;
+    tokensOut?: number | null;
+    latencyMs?: number | null;
+    promptVersion?: string;
+    pipelineVersion?: string;
+    needsHuman?: boolean;
   }): Promise<void>;
   markFailed(deploymentId: string, errorReason: string): Promise<void>;
   findByDeploymentId(deploymentId: string): Promise<{ id: string; status: string } | null>;
@@ -63,6 +71,15 @@ export const diagnosisStore: DiagnosisStore = {
         root_cause: result.rootCause,
         fix_json: JSON.stringify(result.fixJson || {}),
         source: result.source,
+        // Phase 2 fields
+        signature_hash: result.signatureHash || "",
+        model: result.model || "",
+        tokens_in: result.tokensIn ?? 0,
+        tokens_out: result.tokensOut ?? 0,
+        latency_ms: result.latencyMs ?? 0,
+        prompt_version: result.promptVersion || "",
+        pipeline_version: result.pipelineVersion || "",
+        needs_human: result.needsHuman ?? false,
       }, (err: any) => {
         if (err) {
           logger.error(`gRPC MarkDone error for ${deploymentId}:`, err);

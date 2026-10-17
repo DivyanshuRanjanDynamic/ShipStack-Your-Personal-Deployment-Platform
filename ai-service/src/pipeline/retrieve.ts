@@ -1,10 +1,7 @@
 import { logger } from "../logger.js";
-import { RulesResult } from "./rules.js";
+import type { RetrieveResult, RulesResult } from "./types.js";
 
-export interface RetrieveResult {
-  retrievedDocs: string[];
-  rules: RulesResult;
-}
+export type { RetrieveResult };
 
 /**
  * Step 5: Hybrid retrieval (RAG) - no-op in Phase 1.

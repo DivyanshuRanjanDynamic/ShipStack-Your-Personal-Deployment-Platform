@@ -45,22 +45,25 @@ model Deployment {
 }
 
 model Diagnosis {
-  id            String     @id @default(cuid())
-  deploymentId  String     @unique @map("deployment_id")
-  deployment    Deployment @relation(fields: [deploymentId], references: [id])
-  status        String     @default("PENDING") // PENDING | DONE | FAILED
-  category      String?
-  confidence    Float?
-  rootCause     String?    @map("root_cause")
-  fixJson       Json?      @map("fix_json")
-  signatureHash String?    @db.VarChar(64) @map("signature_hash")
-  source        String?    // RULES | LLM | CACHE
-  model         String?
-  tokensIn      Int?       @map("tokens_in")
-  tokensOut     Int?       @map("tokens_out")
-  latencyMs     Int?       @map("latency_ms")
-  feedback      Int?       // -1, 0, 1
-  createdAt     DateTime   @default(now()) @map("created_at")
+  id              String     @id @default(cuid())
+  deploymentId    String     @unique @map("deployment_id")
+  deployment      Deployment @relation(fields: [deploymentId], references: [id])
+  status          String     @default("PENDING") // PENDING | DONE | FAILED
+  category        String?
+  confidence      Float?
+  rootCause       String?    @map("root_cause")
+  fixJson         Json?      @map("fix_json")
+  signatureHash   String?    @db.VarChar(64) @map("signature_hash")
+  source          String?    // RULES | LLM | LLM_FALLBACK | CACHE
+  model           String?
+  tokensIn        Int?       @map("tokens_in")
+  tokensOut       Int?       @map("tokens_out")
+  latencyMs       Int?       @map("latency_ms")
+  promptVersion   String?    @map("prompt_version")
+  pipelineVersion String?    @map("pipeline_version")
+  needsHuman      Boolean?   @map("needs_human")
+  feedback        Int?       // -1, 0, 1
+  createdAt       DateTime   @default(now()) @map("created_at")
 
   @@index([signatureHash])
 }

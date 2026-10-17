@@ -17,7 +17,8 @@ const DiagnosisPayloadSchema = z.object({
     root_cause: z.string().min(1),
     fix_steps: z.array(FixStepSchema),
     evidence: z.array(EvidenceSchema),
-    source: z.enum(['STUB', 'RULES', 'LLM', 'CACHE']),
+    source: z.enum(['STUB', 'RULES', 'LLM', 'LLM_FALLBACK', 'CACHE']),
+    needs_human: z.boolean().optional(),
 });
 
 const DiagnosisResponseSchema = z.discriminatedUnion('status', [
@@ -81,6 +82,7 @@ function createDiagnosisHandler(prisma) {
                     fix_steps: Array.isArray(fixJson.fix_steps) ? fixJson.fix_steps : [],
                     evidence: Array.isArray(fixJson.evidence) ? fixJson.evidence : [],
                     source: diagnosis.source || 'STUB',
+                    needs_human: diagnosis.needsHuman ?? fixJson.needs_human ?? false,
                 };
 
                 const response = {
@@ -107,7 +109,8 @@ function createDiagnosisHandler(prisma) {
             return res.json({ status: 'PENDING' });
         } catch (err) {
             console.error('Error fetching diagnosis:', err);
-            return res.status(500).json({ error: 'Failed to fetch diagnosis', details: err.message });
+            // M6 audit fix: don't expose internal error details to clients
+            return res.status(500).json({ error: 'Internal server error' });
         }
     };
 }

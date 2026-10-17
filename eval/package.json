@@ -4,7 +4,9 @@
   "type": "module",
   "scripts": {
     "validate": "tsx scripts/validate.ts",
-    "generate": "tsx scripts/generate.ts"
+    "generate": "tsx scripts/generate.ts",
+    "run": "tsx run.ts",
+    "test": "node --import tsx --test test/**/*.test.ts"
   },
   "dependencies": {
     "zod": "^3.24.0",

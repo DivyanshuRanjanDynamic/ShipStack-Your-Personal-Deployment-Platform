@@ -5,7 +5,7 @@ import { Config, config as defaultConfig } from "./config.js";
 import { logger } from "./logger.js";
 import { diagnosisStore, DiagnosisStore } from "./store/diagnosis.js";
 import { runPipeline } from "./pipeline/index.js";
-import { PipelineDiagnosisResult } from "./pipeline/diagnose.js";
+import type { PipelineDiagnosisResult } from "./pipeline/types.js";
 
 export interface DlqMessage {
   original_message: unknown;
@@ -15,15 +15,64 @@ export interface DlqMessage {
 
 export type DlqPublisher = (message: DlqMessage) => Promise<void>;
 
+interface DailyDiagnosisTracker {
+  date: string;
+  count: number;
+}
+
+let dailyTracker: DailyDiagnosisTracker = {
+  date: new Date().toISOString().slice(0, 10),
+  count: 0,
+};
+
+export function checkAndIncrementDailyCap(maxLimit: number = defaultConfig.MAX_DIAGNOSES_PER_DAY): boolean {
+  const today = new Date().toISOString().slice(0, 10);
+  if (dailyTracker.date !== today) {
+    dailyTracker = { date: today, count: 0 };
+  }
+  if (dailyTracker.count >= maxLimit) {
+    return false;
+  }
+  dailyTracker.count++;
+  return true;
+}
+
+export function resetDailyCap(): void {
+  dailyTracker = {
+    date: new Date().toISOString().slice(0, 10),
+    count: 0,
+  };
+}
+
+/**
+ * Release a daily cap slot when a pipeline run fails all retries.
+ * Prevents failed attempts (no LLM call billed) from consuming cap budget.
+ */
+export function decrementDailyCap(): void {
+  const today = new Date().toISOString().slice(0, 10);
+  if (dailyTracker.date === today && dailyTracker.count > 0) {
+    dailyTracker.count--;
+  }
+}
+
+export function getDailyDiagnosisCount(): number {
+  const today = new Date().toISOString().slice(0, 10);
+  if (dailyTracker.date !== today) {
+    return 0;
+  }
+  return dailyTracker.count;
+}
+
 /**
  * Core message processor: handles validation, DLQ on invalid,
- * idempotency check, 3 retries with backoff, and marking DONE/FAILED.
+ * idempotency check, daily cap check, 3 retries with backoff, and marking DONE/FAILED.
  */
 export async function processMessage(
   rawValue: string | Buffer | null,
   store: DiagnosisStore = diagnosisStore,
   publishDlq: DlqPublisher,
-  pipelineRunner: (req: DiagnosisRequest) => Promise<PipelineDiagnosisResult> = runPipeline
+  pipelineRunner: (req: DiagnosisRequest) => Promise<PipelineDiagnosisResult> = runPipeline,
+  cfg: Config = defaultConfig
 ): Promise<{ status: "done" | "skipped" | "dlq" | "failed"; error?: string }> {
   if (!rawValue) {
     logger.warn("Received empty Kafka message, publishing to DLQ");
@@ -43,7 +92,7 @@ export async function processMessage(
     parsedJson = JSON.parse(rawString);
   } catch (err: unknown) {
     const errorMsg = err instanceof Error ? err.message : String(err);
-    logger.error("Failed to parse JSON from Kafka message, routing to DLQ", err, { rawString });
+    logger.error("Failed to parse JSON from Kafka message, routing to DLQ", err, { messageLength: rawString.length });
     await publishDlq({
       original_message: rawString,
       error: `Invalid JSON: ${errorMsg}`,
@@ -80,6 +129,32 @@ export async function processMessage(
     return { status: "skipped" };
   }
 
+  // 3.5 Daily cap check
+  if (!checkAndIncrementDailyCap(cfg.MAX_DIAGNOSES_PER_DAY)) {
+    logger.warn(`Daily diagnosis limit of ${cfg.MAX_DIAGNOSES_PER_DAY} reached for ${deploymentId}. Returning UNKNOWN fallback.`);
+    await store.markDone(deploymentId, {
+      category: "UNKNOWN",
+      confidence: 0,
+      rootCause: "Daily AI diagnosis limit reached. Please inspect build logs manually.",
+      fixJson: {
+        fix_steps: [],
+        evidence: [],
+        sources: ["daily_cap_exceeded"],
+        needs_human: true,
+      },
+      source: "RULES",
+      signatureHash: "",
+      model: null,
+      tokensIn: 0,
+      tokensOut: 0,
+      latencyMs: 0,
+      promptVersion: "2.0.0",
+      pipelineVersion: "2.0.0",
+      needsHuman: true,
+    });
+    return { status: "done" };
+  }
+
   // 4. Run pipeline with up to 3 retries and backoff
   let lastError: Error | null = null;
   const maxRetries = 3;
@@ -92,13 +167,21 @@ export async function processMessage(
       });
       const diagnosisResult = await pipelineRunner(request);
 
-      // Write DONE row
+      // Write DONE row with Phase 2 fields
       await store.markDone(deploymentId, {
         category: diagnosisResult.category,
         confidence: diagnosisResult.confidence,
         rootCause: diagnosisResult.rootCause,
         fixJson: diagnosisResult.fixJson,
         source: diagnosisResult.source,
+        signatureHash: diagnosisResult.signatureHash,
+        model: diagnosisResult.model,
+        tokensIn: diagnosisResult.tokensIn,
+        tokensOut: diagnosisResult.tokensOut,
+        latencyMs: diagnosisResult.latencyMs,
+        promptVersion: diagnosisResult.promptVersion,
+        pipelineVersion: diagnosisResult.pipelineVersion,
+        needsHuman: diagnosisResult.fixJson?.needs_human,
       });
 
       return { status: "done" };
@@ -118,6 +201,9 @@ export async function processMessage(
   }
 
   // 5. If failed after max retries, mark FAILED and publish to DLQ
+  // H2 audit fix: release the daily cap slot so failed attempts don't consume budget
+  decrementDailyCap();
+
   const finalErrorMsg = lastError?.message || "Pipeline failed after maximum retries";
   logger.error(`Pipeline exhausted retries for deployment ${deploymentId}`, lastError, { deploymentId });
 

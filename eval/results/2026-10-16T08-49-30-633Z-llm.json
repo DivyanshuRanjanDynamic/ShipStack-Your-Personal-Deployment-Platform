@@ -1,0 +1,83 @@
+{
+  "timestamp": "2026-10-16T08:49:30.633Z",
+  "mode": "llm",
+  "split": "dev",
+  "model": "none",
+  "promptVersion": "2.0.0",
+  "pipelineVersion": "2.0.0",
+  "metrics": {
+    "totalCases": 1,
+    "overallAccuracy": 1,
+    "categoryAccuracy": {
+      "DEPENDENCY_CONFLICT": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      }
+    },
+    "difficultyAccuracy": {
+      "easy": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      }
+    },
+    "confusionMatrix": {
+      "DEPENDENCY_CONFLICT": {
+        "DEPENDENCY_CONFLICT": 1
+      }
+    },
+    "rootCauseScore": {
+      "averageScore": 2,
+      "fullMatchCount": 1,
+      "partialMatchCount": 0,
+      "noMatchCount": 0,
+      "scores": {
+        "DEPENDENCY_CONFLICT-01": 2
+      }
+    },
+    "evidenceValidity": {
+      "totalEvidenceCited": 4,
+      "validEvidenceCount": 4,
+      "validityRate": 1
+    },
+    "jsonValidityRate": 1,
+    "retryRate": 0,
+    "fallbackRate": 0,
+    "escalationRate": 0,
+    "latency": {
+      "meanMs": 2755,
+      "p50Ms": 2755,
+      "p95Ms": 2755,
+      "minMs": 2755,
+      "maxMs": 2755
+    },
+    "tokens": {
+      "totalIn": 2017,
+      "totalOut": 906,
+      "meanIn": 2017,
+      "meanOut": 906
+    },
+    "cost": {
+      "totalUsd": 0.001733,
+      "meanUsd": 0.001733
+    }
+  },
+  "cases": [
+    {
+      "caseId": "DEPENDENCY_CONFLICT-01",
+      "expectedCategory": "DEPENDENCY_CONFLICT",
+      "predictedCategory": "DEPENDENCY_CONFLICT",
+      "isCorrect": true,
+      "confidence": 0.85,
+      "source": "LLM",
+      "needsHuman": false,
+      "rootCauseScore": 2,
+      "evidenceCited": 4,
+      "latencyMs": 2755,
+      "tokensIn": 2017,
+      "tokensOut": 906,
+      "costUsd": 0.001733
+    }
+  ]
+}

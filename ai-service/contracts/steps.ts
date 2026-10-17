@@ -30,7 +30,7 @@ export type DiagnosisStatus = z.infer<typeof DiagnosisStatus>;
 /**
  * Diagnosis source — how the diagnosis was produced.
  */
-export const DiagnosisSource = z.enum(["RULES", "LLM", "CACHE", "STUB"]);
+export const DiagnosisSource = z.enum(["RULES", "LLM", "LLM_FALLBACK", "CACHE", "STUB"]);
 export type DiagnosisSource = z.infer<typeof DiagnosisSource>;
 
 /**

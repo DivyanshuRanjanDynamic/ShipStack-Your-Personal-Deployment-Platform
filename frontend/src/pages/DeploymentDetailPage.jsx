@@ -382,6 +382,11 @@ export default function DeploymentDetailPage() {
                         <span className="badge" style={{ fontSize: '10px', borderColor: 'rgba(0,223,216,0.3)', color: '#00dfd8' }}>
                           Source: {diagnosis.diagnosis.source}
                         </span>
+                        {diagnosis.diagnosis.needs_human && (
+                          <span className="badge" style={{ fontSize: '10px', borderColor: 'rgba(245,158,11,0.4)', color: '#f59e0b', background: 'rgba(245,158,11,0.1)' }}>
+                            Human Review Advised
+                          </span>
+                        )}
                       </div>
                     </div>
 
@@ -421,7 +426,7 @@ export default function DeploymentDetailPage() {
                   <div className="text-center" style={{ padding: '60px 20px' }}>
                     <Loader2 size={28} className="spin-icon" color="#c084fc" />
                     <p style={{ color: '#888', marginTop: '16px', fontSize: '13px' }}>
-                      AI diagnosis is being generated... RAG vector search in progress.
+                      AI diagnosis is being generated... Analyzing build logs and heuristic rules.
                     </p>
                   </div>
                 )}

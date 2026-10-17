@@ -26,6 +26,15 @@ message MarkDoneRequest {
   string root_cause = 4;
   string fix_json = 5;
   string source = 6;
+  // Phase 2 additions (optional, backward compatible)
+  string signature_hash = 7;
+  string model = 8;
+  int32 tokens_in = 9;
+  int32 tokens_out = 10;
+  int32 latency_ms = 11;
+  string prompt_version = 12;
+  string pipeline_version = 13;
+  bool needs_human = 14;
 }
 
 message MarkDoneResponse {

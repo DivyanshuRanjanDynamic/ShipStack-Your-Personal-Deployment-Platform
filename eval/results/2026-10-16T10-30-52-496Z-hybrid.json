@@ -1,0 +1,107 @@
+{
+  "timestamp": "2026-10-16T10:30:52.496Z",
+  "mode": "hybrid",
+  "split": "test",
+  "model": "none",
+  "promptVersion": "2.0.0",
+  "pipelineVersion": "2.0.0",
+  "metrics": {
+    "totalCases": 2,
+    "overallAccuracy": 1,
+    "categoryAccuracy": {
+      "DEPENDENCY_CONFLICT": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      },
+      "MODULE_NOT_FOUND": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      }
+    },
+    "difficultyAccuracy": {
+      "hard": {
+        "total": 2,
+        "correct": 2,
+        "accuracy": 1
+      }
+    },
+    "confusionMatrix": {
+      "DEPENDENCY_CONFLICT": {
+        "DEPENDENCY_CONFLICT": 1
+      },
+      "MODULE_NOT_FOUND": {
+        "MODULE_NOT_FOUND": 1
+      }
+    },
+    "rootCauseScore": {
+      "averageScore": 0.5,
+      "fullMatchCount": 0,
+      "partialMatchCount": 1,
+      "noMatchCount": 1,
+      "scores": {
+        "DEPENDENCY_CONFLICT-03": 0,
+        "MODULE_NOT_FOUND-03": 1
+      }
+    },
+    "evidenceValidity": {
+      "totalEvidenceCited": 10,
+      "validEvidenceCount": 10,
+      "validityRate": 1
+    },
+    "jsonValidityRate": 1,
+    "retryRate": 0,
+    "fallbackRate": 0,
+    "escalationRate": 0,
+    "latency": {
+      "meanMs": 1368,
+      "p50Ms": 1368,
+      "p95Ms": 2569,
+      "minMs": 32,
+      "maxMs": 2703
+    },
+    "tokens": {
+      "totalIn": 1929,
+      "totalOut": 375,
+      "meanIn": 965,
+      "meanOut": 188
+    },
+    "cost": {
+      "totalUsd": 0.001265,
+      "meanUsd": 0.000633
+    }
+  },
+  "cases": [
+    {
+      "caseId": "DEPENDENCY_CONFLICT-03",
+      "expectedCategory": "DEPENDENCY_CONFLICT",
+      "predictedCategory": "DEPENDENCY_CONFLICT",
+      "isCorrect": true,
+      "confidence": 0.95,
+      "source": "RULES",
+      "needsHuman": false,
+      "rootCauseScore": 0,
+      "evidenceCited": 8,
+      "latencyMs": 32,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    },
+    {
+      "caseId": "MODULE_NOT_FOUND-03",
+      "expectedCategory": "MODULE_NOT_FOUND",
+      "predictedCategory": "MODULE_NOT_FOUND",
+      "isCorrect": true,
+      "confidence": 0.98,
+      "source": "LLM",
+      "needsHuman": false,
+      "rootCauseScore": 1,
+      "evidenceCited": 2,
+      "latencyMs": 2703,
+      "tokensIn": 1929,
+      "tokensOut": 375,
+      "costUsd": 0.001265
+    }
+  ]
+}

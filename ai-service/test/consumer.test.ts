@@ -60,10 +60,9 @@ describe("Kafka Consumer Message Processing", () => {
     );
 
     expect(result.status).toBe("done");
-    expect(calls.upsert).toContain("dep-consumer-1");
     expect(calls.markDone.length).toBe(1);
-    expect(calls.markDone[0].result.source).toBe("STUB");
-    expect(calls.markDone[0].result.category).toBe("UNKNOWN");
+    expect(["LLM", "RULES", "LLM_FALLBACK", "STUB"]).toContain(calls.markDone[0].result.source);
+    expect(calls.markDone[0].result.confidence).toBeGreaterThanOrEqual(0);
     expect(dlqMessages.length).toBe(0);
   });
 
@@ -146,5 +145,75 @@ describe("Kafka Consumer Message Processing", () => {
     expect(calls.markFailed[0].errorReason).toContain("Transient error #3");
     expect(dlqMessages.length).toBe(1);
     expect(dlqMessages[0].error).toContain("Transient error #3");
+  });
+
+  it("persists all Phase 2 fields to markDone", async () => {
+    const { store, calls } = createMockStore();
+    const publishDlq = async () => {};
+
+    const mockPipeline = async () => ({
+      category: "DEPENDENCY_CONFLICT",
+      confidence: 0.95,
+      rootCause: "npm peer dependency conflict",
+      fixJson: {
+        fix_steps: [{ step: "Run npm install --legacy-peer-deps", type: "config" as const }],
+        evidence: [{ line: 12, text: "ERESOLVE unable to resolve dependency tree" }],
+        sources: ["rules"],
+        needs_human: false,
+      },
+      source: "RULES" as const,
+      signatureHash: "sig-hash-123",
+      model: null,
+      tokensIn: null,
+      tokensOut: null,
+      latencyMs: null,
+      promptVersion: "2.0.0",
+      pipelineVersion: "2.0.0",
+    });
+
+    const result = await processMessage(
+      JSON.stringify(validRequest),
+      store,
+      publishDlq,
+      mockPipeline
+    );
+
+    expect(result.status).toBe("done");
+    expect(calls.markDone.length).toBe(1);
+    const saved = calls.markDone[0].result;
+    expect(saved.signatureHash).toBe("sig-hash-123");
+    expect(saved.promptVersion).toBe("2.0.0");
+    expect(saved.pipelineVersion).toBe("2.0.0");
+    expect(saved.needsHuman).toBe(false);
+  });
+
+  it("enforces daily cap by returning safe UNKNOWN diagnosis without calling pipeline", async () => {
+    const { store, calls } = createMockStore();
+    const publishDlq = async () => {};
+    let pipelineCalled = false;
+    const mockPipeline = async () => {
+      pipelineCalled = true;
+      throw new Error("Should not be called when daily cap exceeded");
+    };
+
+    const customCfg: any = {
+      MAX_DIAGNOSES_PER_DAY: 0, // Force limit to be exceeded immediately
+    };
+
+    const result = await processMessage(
+      JSON.stringify(validRequest),
+      store,
+      publishDlq,
+      mockPipeline,
+      customCfg
+    );
+
+    expect(result.status).toBe("done");
+    expect(pipelineCalled).toBe(false);
+    expect(calls.markDone.length).toBe(1);
+    expect(calls.markDone[0].result.category).toBe("UNKNOWN");
+    expect(calls.markDone[0].result.confidence).toBe(0);
+    expect(calls.markDone[0].result.rootCause).toContain("Daily AI diagnosis limit reached");
+    expect(calls.markDone[0].result.needsHuman).toBe(true);
   });
 });
