@@ -20,6 +20,9 @@ import {
 } from 'lucide-react';
 import { createProject, triggerDeploy } from '../services/api';
 
+// Node majors available in the build image (keep in sync with the build-server Dockerfile).
+const NODE_VERSIONS = ['16', '18', '20', '22'];
+
 const FRAMEWORKS = [
   { id: 'React', name: 'React (Vite)', installCmd: 'npm install', buildCmd: 'npm run build', outDir: 'dist' },
   { id: 'Next.js', name: 'Next.js', installCmd: 'npm install', buildCmd: 'npm run build', outDir: '.next' },
@@ -35,12 +38,13 @@ export default function NewProjectPage() {
   const [gitUrl, setGitUrl] = useState('');
   const [projectName, setProjectName] = useState('');
 
-  // Build Settings
+  // Build Settings — all optional overrides; blank means auto-detect on the server.
   const [framework, setFramework] = useState('React');
-  const [rootDir, setRootDir] = useState('./');
-  const [installCmd, setInstallCmd] = useState('npm install');
-  const [buildCmd, setBuildCmd] = useState('npm run build');
-  const [outDir, setOutDir] = useState('dist');
+  const [rootDir, setRootDir] = useState('');
+  const [installCmd, setInstallCmd] = useState('');
+  const [buildCmd, setBuildCmd] = useState('');
+  const [outDir, setOutDir] = useState('');
+  const [nodeVersion, setNodeVersion] = useState('');
   const [showBuildSettings, setShowBuildSettings] = useState(false);
 
   // Environment Variables
@@ -67,14 +71,10 @@ export default function NewProjectPage() {
   }, [gitUrl]);
 
   // Handle framework selection
+  // Framework is a UI hint only; the server auto-detects it. Selecting one no longer forces
+  // install/build/output overrides (that would defeat auto-detection, e.g. Next.js "out" vs ".next").
   const handleFrameworkChange = (fwId) => {
     setFramework(fwId);
-    const fw = FRAMEWORKS.find((f) => f.id === fwId);
-    if (fw) {
-      setInstallCmd(fw.installCmd);
-      setBuildCmd(fw.buildCmd);
-      setOutDir(fw.outDir);
-    }
   };
 
   // Add / Remove Env Row
@@ -181,17 +181,18 @@ export default function NewProjectPage() {
     setIsSubmitting(true);
 
     try {
-      // 1. Create Project
+      // 1. Create Project. Only send overrides the user actually set; blanks mean auto-detect.
+      const buildSettings = {};
+      if (rootDir.trim()) buildSettings.rootDirectory = rootDir.trim();
+      if (installCmd.trim()) buildSettings.installCommand = installCmd.trim();
+      if (buildCmd.trim()) buildSettings.buildCommand = buildCmd.trim();
+      if (outDir.trim()) buildSettings.outputDirectory = outDir.trim();
+      if (nodeVersion) buildSettings.nodeVersion = nodeVersion;
+
       const projectPayload = {
         gitURL: trimmedGit,
         name: trimmedName,
-        buildSettings: {
-          framework,
-          rootDir: rootDir.trim() || './',
-          installCmd: installCmd.trim(),
-          buildCmd: buildCmd.trim(),
-          outDir: outDir.trim() || 'dist',
-        },
+        buildSettings,
         envVars: cleanEnvs.map((e) => ({ key: e.key.trim(), value: e.value })),
       };
 
@@ -386,6 +387,35 @@ export default function NewProjectPage() {
                   </select>
                 </div>
 
+                <p style={{ fontSize: '12px', color: '#71717a', margin: '0 0 16px' }}>
+                  All fields below are optional. Leave blank to let ShipStack auto-detect.
+                </p>
+
+                <div style={{ marginBottom: '16px' }}>
+                  <label style={{ display: 'block', fontSize: '13px', color: '#d4d4d8', marginBottom: '6px' }}>
+                    Node Version
+                  </label>
+                  <select
+                    value={nodeVersion}
+                    onChange={(e) => setNodeVersion(e.target.value)}
+                    style={{
+                      width: '100%',
+                      background: '#030303',
+                      border: '1px solid #27272a',
+                      borderRadius: '8px',
+                      padding: '10px 12px',
+                      color: '#ffffff',
+                      fontSize: '13px',
+                      outline: 'none',
+                    }}
+                  >
+                    <option value="">Auto-detect</option>
+                    {NODE_VERSIONS.map((v) => (
+                      <option key={v} value={v}>Node {v}</option>
+                    ))}
+                  </select>
+                </div>
+
                 <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
                   <div>
                     <label style={{ display: 'block', fontSize: '13px', color: '#d4d4d8', marginBottom: '6px' }}>
@@ -395,7 +425,7 @@ export default function NewProjectPage() {
                       type="text"
                       value={rootDir}
                       onChange={(e) => setRootDir(e.target.value)}
-                      placeholder="./"
+                      placeholder="Auto-detect (e.g. frontend)"
                       style={{
                         width: '100%',
                         background: '#030303',
@@ -416,7 +446,7 @@ export default function NewProjectPage() {
                       type="text"
                       value={outDir}
                       onChange={(e) => setOutDir(e.target.value)}
-                      placeholder="dist"
+                      placeholder="Auto-detect (e.g. dist, build, out)"
                       style={{
                         width: '100%',
                         background: '#030303',
@@ -440,7 +470,7 @@ export default function NewProjectPage() {
                       type="text"
                       value={installCmd}
                       onChange={(e) => setInstallCmd(e.target.value)}
-                      placeholder="npm install"
+                      placeholder="Auto-detect"
                       style={{
                         width: '100%',
                         background: '#030303',
@@ -461,7 +491,7 @@ export default function NewProjectPage() {
                       type="text"
                       value={buildCmd}
                       onChange={(e) => setBuildCmd(e.target.value)}
-                      placeholder="npm run build"
+                      placeholder="Auto-detect"
                       style={{
                         width: '100%',
                         background: '#030303',

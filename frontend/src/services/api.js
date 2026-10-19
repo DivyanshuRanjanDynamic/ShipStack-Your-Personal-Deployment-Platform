@@ -125,6 +125,12 @@ function normalizeProject(project) {
     subDomain: String(project.subDomain || ''),
     customDomain: project.customDomain ? String(project.customDomain) : null,
     buildSettings: project.buildSettings && typeof project.buildSettings === 'object' ? project.buildSettings : null,
+    // Typed per-project build settings (null = auto-detect).
+    rootDirectory: project.rootDirectory ?? null,
+    installCommand: project.installCommand ?? null,
+    buildCommand: project.buildCommand ?? null,
+    outputDirectory: project.outputDirectory ?? null,
+    nodeVersion: project.nodeVersion ?? null,
     envVars: Array.isArray(project.envVars) ? project.envVars : [],
     deployments,
     latestDeployment,
@@ -465,6 +471,19 @@ export async function updateProjectEnvVars(projectId, envVars, signal) {
     signal,
   });
   return validateEnvVarsResponse(raw);
+}
+
+/**
+ * Update a project's build settings (PATCH /project/:id/build-settings).
+ * `settings` is an object of the typed fields; null/omitted fields mean auto-detect.
+ * Returns the raw { status, data: { buildSettings } } response from the server.
+ */
+export async function updateProjectBuildSettings(projectId, settings, signal) {
+  return request(`/project/${encodeURIComponent(projectId)}/build-settings`, {
+    method: 'PATCH',
+    body: JSON.stringify(settings || {}),
+    signal,
+  });
 }
 
 /**
