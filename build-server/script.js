@@ -242,12 +242,26 @@ async function init() {
     if (echo) console.log('Starting to upload to S3...');
     await logSink.publish({ log: 'Starting to upload to S3...' });
 
-    await uploadDirectory({
-        dir: distFolderPath,
-        keyPrefix: `__outputs/${PROJECT_ID}`,
-        objectSink,
-        logSink,
+    const keyPrefix = `__outputs/${PROJECT_ID}`;
+    const uploadResult = await uploadDirectory({ dir: distFolderPath, keyPrefix, objectSink, logSink });
+    await logSink.publish({
+        log: `[upload] ${uploadResult.uploaded} file(s) uploaded, ${uploadResult.bytes} bytes, ${uploadResult.durationMs} ms`,
+        step: 'upload',
     });
+
+    // A deployment must never be reported successful with missing files.
+    const indexUploaded = uploadResult.files.includes('index.html') && !uploadResult.failedKeys.includes(`${keyPrefix}/index.html`);
+    if (uploadResult.failed > 0 || !indexUploaded) {
+        if (uploadResult.failed > 0) {
+            await logSink.publish({ log: `[upload] ${uploadResult.failed} file(s) failed to upload`, step: 'upload' });
+        }
+        if (!indexUploaded) {
+            await logSink.publish({ log: `[upload] index.html was not uploaded`, step: 'upload' });
+        }
+        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: 'UPLOAD_FAILED' });
+        await fail();
+        return;
+    }
 
     await logSink.publish({ log: `[upload:end] exit_code=0`, step: 'upload', event: 'step_end', exit_code: 0 });
     if (echo) console.log('Uploading to S3 Done!!!!!!');
