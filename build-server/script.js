@@ -187,17 +187,28 @@ async function init() {
         await logSink.publish({ log: `[setup] ignoring user env var ${key} (reserved by the build)` });
     }
 
+    // Shared build-context fields; the output directory is filled in and re-uploaded after the build.
+    const buildContextBase = {
+        projectDir,
+        installDir: installPlan.ok ? installPlan.cwd : projectDir,
+        packageManager: installPlan.ok ? installPlan.manager : null,
+        deploymentId: DEPLOYMENT_ID,
+        gitUrl: GIT_REPOSITORY_URL,
+        buildCommand: buildPlan && buildPlan.ok ? buildPlan.command : null,
+        nodeVersion: nodeSelection.version,
+        rootDirectory: root.ok ? root.relative : null,
+        installCommand: installPlan.ok ? installPlan.command : null,
+        nodeSelectedFrom: nodeSelection.source,
+        legacyOpenSSL,
+    };
+
     await uploadBuildContext({
         objectSink,
         context: createBuildContext({
-            projectDir,
-            installDir: installPlan.ok ? installPlan.cwd : projectDir,
-            packageManager: installPlan.ok ? installPlan.manager : null,
-            deploymentId: DEPLOYMENT_ID,
-            gitUrl: GIT_REPOSITORY_URL,
-            buildCommand: buildPlan && buildPlan.ok ? buildPlan.command : null,
-            expectedOutputDir: 'dist', // Using 'dist' as a reasonable guess, will verify below
-            nodeVersion: nodeSelection.version,
+            ...buildContextBase,
+            // Before the build only a configured output directory is known; detection fills the rest.
+            expectedOutputDir: settings.outputDirectory || null,
+            outputDirResolved: null,
         }),
     });
 
@@ -260,6 +271,16 @@ async function init() {
     if (output.warning) {
         await logSink.publish({ log: `[upload] ${output.warning}`, step: 'upload' });
     }
+
+    // Re-upload the build-context with the resolved output directory. A failed upload is logged, not fatal.
+    await uploadBuildContext({
+        objectSink,
+        context: createBuildContext({
+            ...buildContextBase,
+            expectedOutputDir: output.relative,
+            outputDirResolved: output.relative,
+        }),
+    });
 
     if (echo) console.log('Starting to upload to S3...');
     await logSink.publish({ log: 'Starting to upload to S3...' });
