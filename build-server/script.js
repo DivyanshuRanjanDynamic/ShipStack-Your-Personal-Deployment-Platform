@@ -12,7 +12,8 @@ const {
 const { runStep, runCommand, startShell } = require('./lib/run-step');
 const { selectRootDirectory, describeRootSelection, readPackageJson, detectFramework } = require('./lib/detect');
 const { planInstall, runInstall, planBuild } = require('./lib/install');
-const { selectNodeForProject, needsLegacyOpenSSL, appendNodeOption, describeNodeSelection } = require('./lib/node-version');
+const { selectNodeForProject, needsLegacyOpenSSL, describeNodeSelection } = require('./lib/node-version');
+const { parseUserEnvJson, buildChildEnv } = require('./lib/env');
 const { resolveOutputDir } = require('./lib/output-dir');
 const { uploadDirectory } = require('./lib/upload');
 const { createBuildContext, uploadBuildContext } = require('./lib/build-context');
@@ -158,12 +159,26 @@ async function init() {
         await logSink.publish({ log: line });
     }
 
-    const childEnvOverrides = { PATH: `${nodeSelection.binDir}${path.delimiter}${process.env.PATH || ''}` };
-    const nodeOptions = legacyOpenSSL
-        ? appendNodeOption(process.env.NODE_OPTIONS, '--openssl-legacy-provider')
-        : (process.env.NODE_OPTIONS || '');
-    if (nodeOptions) childEnvOverrides.NODE_OPTIONS = nodeOptions;
-    const childEnv = { ...process.env, ...childEnvOverrides };
+    // Child environment: an allowlist plus the user's project env vars, never a spread of the
+    // task environment, so platform secrets are not visible to install, build or their scripts.
+    const userEnvResult = parseUserEnvJson(process.env.USER_ENV_JSON);
+    if (userEnvResult.error) {
+        await logSink.publish({ log: `[setup] ${userEnvResult.error}; continuing without user environment variables` });
+    }
+    for (const { key, reason } of userEnvResult.rejected) {
+        await logSink.publish({ log: `[setup] ignoring user env var ${key} (${reason})` });
+    }
+    const { env: childEnv, appliedKeys, rejectedReservedKeys } = buildChildEnv({
+        nodeBinDir: nodeSelection.binDir,
+        legacyOpenSSL,
+        userEnv: userEnvResult.accepted,
+    });
+    if (appliedKeys.length > 0) {
+        await logSink.publish({ log: `[setup] applied ${appliedKeys.length} user environment variable(s): ${appliedKeys.join(', ')}` });
+    }
+    for (const key of rejectedReservedKeys) {
+        await logSink.publish({ log: `[setup] ignoring user env var ${key} (reserved by the build)` });
+    }
 
     await uploadBuildContext({
         objectSink,
