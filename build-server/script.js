@@ -17,6 +17,7 @@ const { parseUserEnvJson, buildChildEnv } = require('./lib/env');
 const { resolveOutputDir } = require('./lib/output-dir');
 const { uploadDirectory } = require('./lib/upload');
 const { createBuildContext, uploadBuildContext } = require('./lib/build-context');
+const { readBuildSettings } = require('./lib/settings');
 
 // LOCAL_RUN=1: logs to stdout, objects to a local folder, no Kafka, no S3, no credentials.
 const LOCAL_RUN = process.env.LOCAL_RUN === '1';
@@ -128,8 +129,14 @@ async function init() {
         return;
     }
 
+    // Re-validate the project build settings the API sent; invalid ones are ignored.
+    const { settings, logLines: settingsLogLines } = readBuildSettings();
+    for (const line of settingsLogLines) {
+        await logSink.publish({ log: line });
+    }
+
     // Setup failures happen before install runs, so they are reported as the install step.
-    const root = selectRootDirectory(repoPath);
+    const root = selectRootDirectory(repoPath, { configured: settings.rootDirectory });
     for (const line of describeRootSelection(root)) {
         await logSink.publish({ log: line });
     }
@@ -141,11 +148,11 @@ async function init() {
     const projectDir = root.dir;
     const projectPkg = readPackageJson(projectDir) || {};
 
-    const installPlan = planInstall({ repoPath, projectDir });
+    const installPlan = planInstall({ repoPath, projectDir, installCommand: settings.installCommand });
     for (const line of installPlan.logLines) {
         await logSink.publish({ log: line });
     }
-    const buildPlan = installPlan.ok ? planBuild({ projectDir, manager: installPlan.manager }) : null;
+    const buildPlan = installPlan.ok ? planBuild({ projectDir, manager: installPlan.manager, buildCommand: settings.buildCommand }) : null;
     if (buildPlan) {
         for (const line of buildPlan.logLines) {
             await logSink.publish({ log: line });
@@ -153,7 +160,7 @@ async function init() {
     }
 
     // Node version and legacy OpenSSL decision; both apply to install and build.
-    const nodeSelection = selectNodeForProject({ projectDir, pkg: projectPkg, setting: process.env.NODE_VERSION || null });
+    const nodeSelection = selectNodeForProject({ projectDir, pkg: projectPkg, setting: settings.nodeVersion });
     const legacyOpenSSL = needsLegacyOpenSSL({ major: nodeSelection.major, pkg: projectPkg });
     for (const line of describeNodeSelection(nodeSelection, legacyOpenSSL)) {
         await logSink.publish({ log: line });
@@ -239,7 +246,7 @@ async function init() {
     // 4. Upload Step
     await logSink.publish({ log: `[upload:start]`, step: 'upload', event: 'step_start' });
 
-    const output = resolveOutputDir({ projectDir, framework: detectFramework(projectPkg), buildStartedMs });
+    const output = resolveOutputDir({ projectDir, framework: detectFramework(projectPkg), buildStartedMs, configured: settings.outputDirectory });
     if (!output.ok) {
         for (const line of output.logLines) {
             await logSink.publish({ log: line, step: 'upload' });
