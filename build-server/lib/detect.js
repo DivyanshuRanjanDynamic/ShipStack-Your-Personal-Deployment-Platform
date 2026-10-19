@@ -25,11 +25,55 @@ function detectFramework(pkg) {
     return 'unknown';
 }
 
-// Package manager label used in build-context.json.
+const PACKAGE_MANAGERS = ['npm', 'yarn', 'pnpm'];
+const LOCKFILES = [['pnpm-lock.yaml', 'pnpm'], ['yarn.lock', 'yarn'], ['package-lock.json', 'npm']];
+
+/**
+ * Package manager for the folder that is installed. Order: the `packageManager` field
+ * (e.g. "pnpm@9.1.0"), then pnpm-lock.yaml, yarn.lock, package-lock.json, then npm.
+ * Returns { manager, source }; an unsupported `packageManager` value is reported in `ignored`.
+ */
+function detectPackageManagerWithSource(dir) {
+    const pkg = readPackageJson(dir);
+    let ignored = null;
+    if (pkg && typeof pkg.packageManager === 'string') {
+        const name = pkg.packageManager.split('@')[0];
+        if (PACKAGE_MANAGERS.includes(name)) {
+            return { manager: name, source: `packageManager "${pkg.packageManager.split('+')[0]}"` };
+        }
+        ignored = pkg.packageManager.split('+')[0];
+    }
+    for (const [file, manager] of LOCKFILES) {
+        if (fs.existsSync(path.join(dir, file))) return { manager, source: file, ignored };
+    }
+    return { manager: 'npm', source: 'default', ignored };
+}
+
 function detectPackageManager(dir) {
-    if (fs.existsSync(path.join(dir, 'yarn.lock'))) return 'yarn';
-    if (fs.existsSync(path.join(dir, 'pnpm-lock.yaml'))) return 'pnpm';
-    return 'npm';
+    return detectPackageManagerWithSource(dir).manager;
+}
+
+// True when the repo root declares npm/yarn workspaces or has a pnpm-workspace.yaml.
+function isWorkspaceRoot(repoPath) {
+    const pkg = readPackageJson(repoPath);
+    return Boolean(pkg && pkg.workspaces) || fs.existsSync(path.join(repoPath, 'pnpm-workspace.yaml'));
+}
+
+const DEPENDENCY_FIELDS = ['dependencies', 'devDependencies', 'peerDependencies', 'optionalDependencies'];
+
+// Dependencies that use the `workspace:` protocol, as "folder: name@spec", across the root and scanned folders.
+function findWorkspaceProtocolDeps(repoPath) {
+    const found = [];
+    for (const rel of ['.', ...findPackageDirs(repoPath)]) {
+        const pkg = readPackageJson(path.join(repoPath, rel));
+        if (!pkg) continue;
+        for (const field of DEPENDENCY_FIELDS) {
+            for (const [name, spec] of Object.entries(pkg[field] || {})) {
+                if (typeof spec === 'string' && spec.startsWith('workspace:')) found.push(`${rel}: ${name}@${spec}`);
+            }
+        }
+    }
+    return found;
 }
 
 const FRONTEND_DEPS = ['react', 'vite', 'next', 'vue', 'svelte', '@angular/core', 'astro', 'gatsby', 'react-scripts'];
@@ -173,5 +217,8 @@ module.exports = {
     allDependencies,
     detectFramework,
     detectPackageManager,
+    detectPackageManagerWithSource,
+    isWorkspaceRoot,
+    findWorkspaceProtocolDeps,
     hasLockfile,
 };

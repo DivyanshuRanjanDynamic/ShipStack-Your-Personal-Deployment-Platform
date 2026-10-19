@@ -1,4 +1,4 @@
-const { exec, execFile } = require("child_process");
+const { execFile } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -9,9 +9,9 @@ const {
     createS3ObjectSink,
     createLocalObjectSink,
 } = require('./lib/sinks');
-const { runStep } = require('./lib/run-step');
-const { readPackageJson, selectRootDirectory, describeRootSelection } = require('./lib/detect');
-const { resolveInstallCommand, resolveBuildCommand } = require('./lib/install');
+const { runStep, runCommand, startShell } = require('./lib/run-step');
+const { selectRootDirectory, describeRootSelection } = require('./lib/detect');
+const { planInstall, runInstall, planBuild } = require('./lib/install');
 const { findOutputDir } = require('./lib/output-dir');
 const { uploadDirectory } = require('./lib/upload');
 const { createBuildContext, uploadBuildContext } = require('./lib/build-context');
@@ -137,28 +137,49 @@ async function init() {
         return;
     }
     const projectDir = root.dir;
-    const pkg = readPackageJson(projectDir) || {};
-    const buildCmd = resolveBuildCommand(pkg);
+
+    const installPlan = planInstall({ repoPath, projectDir });
+    for (const line of installPlan.logLines) {
+        await logSink.publish({ log: line });
+    }
+    const buildPlan = installPlan.ok ? planBuild({ projectDir, manager: installPlan.manager }) : null;
+    if (buildPlan) {
+        for (const line of buildPlan.logLines) {
+            await logSink.publish({ log: line });
+        }
+    }
 
     await uploadBuildContext({
         objectSink,
         context: createBuildContext({
             projectDir,
+            installDir: installPlan.ok ? installPlan.cwd : projectDir,
+            packageManager: installPlan.ok ? installPlan.manager : null,
             deploymentId: DEPLOYMENT_ID,
             gitUrl: GIT_REPOSITORY_URL,
-            buildCommand: buildCmd,
+            buildCommand: buildPlan && buildPlan.ok ? buildPlan.command : null,
             expectedOutputDir: 'dist', // Using 'dist' as a reasonable guess, will verify below
         }),
     });
 
+    if (!installPlan.ok) {
+        await logSink.publish({ log: `[install:end] exit_code=1`, step: 'install', event: 'step_end', exit_code: 1, failure_reason: installPlan.failureReason });
+        await fail();
+        return;
+    }
+    if (!buildPlan.ok) {
+        await logSink.publish({ log: `[build:end] exit_code=1`, step: 'build', event: 'step_end', exit_code: 1, failure_reason: buildPlan.failureReason });
+        await fail();
+        return;
+    }
+    const buildCmd = buildPlan.command;
+
     // 2. Install Step
     console.log('Installing dependencies...');
-    const install = await runStep({
-        start: () => exec(resolveInstallCommand(), { cwd: projectDir }),
-        stepName: 'install',
-        failReason: 'NONZERO_EXIT',
+    const install = await runInstall({
+        plan: installPlan,
+        run: (command) => runCommand({ start: () => startShell(command, { cwd: installPlan.cwd }), stepName: 'install', logSink, echo }),
         logSink,
-        echo,
     });
     if (!install.ok) {
         await fail();
@@ -168,7 +189,7 @@ async function init() {
     // 3. Build Step
     console.log(`Running build command: ${buildCmd}`);
     const build = await runStep({
-        start: () => exec(buildCmd, { cwd: projectDir }),
+        start: () => startShell(buildCmd, { cwd: projectDir }),
         stepName: 'build',
         failReason: 'NONZERO_EXIT',
         logSink,

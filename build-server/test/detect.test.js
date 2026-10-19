@@ -12,6 +12,9 @@ const {
     describeRootSelection,
     detectFramework,
     detectPackageManager,
+    detectPackageManagerWithSource,
+    isWorkspaceRoot,
+    findWorkspaceProtocolDeps,
     hasLockfile,
 } = require('../lib/detect');
 
@@ -205,13 +208,54 @@ describe('detectPackageManager', () => {
         assert.strictEqual(detectPackageManager(path.join(FIXTURES, 'lock-pnpm')), 'pnpm');
     });
 
-    it('prefers yarn when both yarn.lock and pnpm-lock.yaml exist', () => {
-        assert.strictEqual(detectPackageManager(path.join(FIXTURES, 'lock-yarn-and-pnpm')), 'yarn');
+    it('prefers pnpm-lock.yaml over yarn.lock (spec order: pnpm, yarn, npm)', () => {
+        assert.strictEqual(detectPackageManager(path.join(FIXTURES, 'lock-yarn-and-pnpm')), 'pnpm');
     });
 
-    it('defaults to npm', () => {
-        assert.strictEqual(detectPackageManager(path.join(FIXTURES, 'lock-npm')), 'npm');
-        assert.strictEqual(detectPackageManager(path.join(FIXTURES, 'no-lockfile')), 'npm');
+    it('prefers yarn.lock over package-lock.json', () => {
+        assert.strictEqual(detectPackageManager(makeTree({ 'package.json': '{}', 'yarn.lock': '', 'package-lock.json': '{}' })), 'yarn');
+    });
+
+    it('detects npm from package-lock.json, and defaults to npm', () => {
+        assert.deepStrictEqual(detectPackageManagerWithSource(path.join(FIXTURES, 'lock-npm')), { manager: 'npm', source: 'package-lock.json', ignored: null });
+        assert.deepStrictEqual(detectPackageManagerWithSource(path.join(FIXTURES, 'no-lockfile')), { manager: 'npm', source: 'default', ignored: null });
+    });
+
+    it('prefers the packageManager field over any lockfile', () => {
+        const dir = makeTree({ 'package.json': JSON.stringify({ packageManager: 'yarn@4.5.0' }), 'pnpm-lock.yaml': '' });
+        assert.deepStrictEqual(detectPackageManagerWithSource(dir), { manager: 'yarn', source: 'packageManager "yarn@4.5.0"' });
+    });
+});
+
+describe('isWorkspaceRoot', () => {
+    it('is true for a workspaces field (array or object) or pnpm-workspace.yaml', () => {
+        assert.strictEqual(isWorkspaceRoot(makeTree({ 'package.json': JSON.stringify({ workspaces: ['apps/*'] }) })), true);
+        assert.strictEqual(isWorkspaceRoot(makeTree({ 'package.json': JSON.stringify({ workspaces: { packages: ['apps/*'] } }) })), true);
+        assert.strictEqual(isWorkspaceRoot(makeTree({ 'pnpm-workspace.yaml': 'packages: []' })), true);
+    });
+
+    it('is false otherwise', () => {
+        assert.strictEqual(isWorkspaceRoot(path.join(FIXTURES, 'mern')), false);
+        assert.strictEqual(isWorkspaceRoot(path.join(FIXTURES, 'no-package')), false);
+    });
+});
+
+describe('findWorkspaceProtocolDeps', () => {
+    it('finds workspace: specs in every dependency field of the root and scanned folders', () => {
+        const repo = makeTree({
+            'package.json': JSON.stringify({ devDependencies: { tooling: 'workspace:*' } }),
+            'apps/web/package.json': JSON.stringify({ dependencies: { ui: 'workspace:^1.0.0', react: '18' }, peerDependencies: { core: 'workspace:~' } }),
+            'node_modules/x/package.json': JSON.stringify({ dependencies: { y: 'workspace:*' } }),
+        });
+        assert.deepStrictEqual(findWorkspaceProtocolDeps(repo).sort(), [
+            '.: tooling@workspace:*',
+            'apps/web: core@workspace:~',
+            'apps/web: ui@workspace:^1.0.0',
+        ]);
+    });
+
+    it('is empty for a normal repo', () => {
+        assert.deepStrictEqual(findWorkspaceProtocolDeps(path.join(FIXTURES, 'mern')), []);
     });
 });
 

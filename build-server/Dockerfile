@@ -24,6 +24,10 @@ COPY kafka.pem kafka.pem
 
 RUN npm install
 
+# pnpm and yarn shims for repos that use them (versions come from the repo's packageManager field)
+RUN corepack enable
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
+
 # now we need to give the executable permission to the main.sh file
 RUN chmod +x main.sh
 RUN chmod +x script.js
