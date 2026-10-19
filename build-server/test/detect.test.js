@@ -1,10 +1,15 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
 const path = require('path');
 const { FIXTURES, makeTree } = require('./helpers');
 const {
     readPackageJson,
-    findProjectDir,
+    scorePackage,
+    findPackageDirs,
+    resolveInsideRepo,
+    selectRootDirectory,
+    describeRootSelection,
     detectFramework,
     detectPackageManager,
     hasLockfile,
@@ -25,20 +30,150 @@ describe('readPackageJson', () => {
     });
 });
 
-describe('findProjectDir', () => {
-    it('uses the repo root when it has a package.json', () => {
+describe('scorePackage', () => {
+    it('adds 2 for a build script and 2 for a frontend dependency', () => {
+        assert.deepStrictEqual(scorePackage({ scripts: { build: 'vite build' }, devDependencies: { vite: '5' } }), { score: 4, reasons: ['build script', 'vite'] });
+    });
+
+    it('subtracts 3 for a server-only package', () => {
+        assert.deepStrictEqual(scorePackage({ scripts: { build: 'tsc' }, dependencies: { express: '4' } }), { score: -1, reasons: ['build script', 'server-only: express'] });
+    });
+
+    it('does not penalize a server dependency next to a frontend one', () => {
+        assert.strictEqual(scorePackage({ dependencies: { next: '14', express: '4' } }).score, 2);
+    });
+
+    it('recognizes every listed frontend framework', () => {
+        for (const dep of ['react', 'vite', 'next', 'vue', 'svelte', '@angular/core', 'astro', 'gatsby', 'react-scripts']) {
+            assert.strictEqual(scorePackage({ dependencies: { [dep]: '1' } }).score, 2, dep);
+        }
+    });
+});
+
+describe('findPackageDirs', () => {
+    it('scans two levels and skips node_modules, dot folders and deeper folders', () => {
+        const repo = makeTree({
+            'web/package.json': '{}',
+            'apps/site/package.json': '{}',
+            'a/b/c/package.json': '{}',
+            'node_modules/react/package.json': '{}',
+            '.github/actions/package.json': '{}',
+        });
+        assert.deepStrictEqual(findPackageDirs(repo).sort(), ['apps/site', 'web']);
+    });
+});
+
+describe('selectRootDirectory', () => {
+    it('uses the repo root when it has a build script', () => {
         const repo = path.join(FIXTURES, 'root-package');
-        assert.strictEqual(findProjectDir(repo), repo);
+        assert.deepStrictEqual(selectRootDirectory(repo), { ok: true, dir: repo, relative: '.', reason: 'build script' });
     });
 
-    it('otherwise uses the first subdirectory with a package.json', () => {
-        const repo = path.join(FIXTURES, 'subdir-only');
-        assert.strictEqual(findProjectDir(repo), path.join(repo, 'b-app'));
+    it('uses the repo root when it has a frontend dependency but no build script', () => {
+        const repo = makeTree({
+            'package.json': JSON.stringify({ dependencies: { react: '18' } }),
+            'docs/package.json': JSON.stringify({ scripts: { build: 'x' }, dependencies: { vue: '3' } }),
+        });
+        const result = selectRootDirectory(repo);
+        assert.strictEqual(result.relative, '.');
+        assert.strictEqual(result.reason, 'react');
     });
 
-    it('returns the repo root when no folder has a package.json', () => {
-        const repo = path.join(FIXTURES, 'no-package');
-        assert.strictEqual(findProjectDir(repo), repo);
+    it('picks the frontend in a MERN repo whose root package.json is not buildable', () => {
+        const repo = path.join(FIXTURES, 'mern');
+        const result = selectRootDirectory(repo);
+        assert.strictEqual(result.ok, true);
+        assert.strictEqual(result.dir, path.join(repo, 'frontend'));
+        assert.deepStrictEqual(describeRootSelection(result), ['[setup] root directory: frontend (reason: build script + react)']);
+    });
+
+    it('scans when the root has no package.json', () => {
+        const repo = makeTree({
+            'client/package.json': JSON.stringify({ scripts: { build: 'vite build' }, devDependencies: { vite: '5' } }),
+            'server/package.json': JSON.stringify({ dependencies: { express: '4' } }),
+        });
+        assert.strictEqual(selectRootDirectory(repo).relative, 'client');
+    });
+
+    it('prefers a frontend with a build script over one without', () => {
+        const repo = makeTree({
+            'a/package.json': JSON.stringify({ dependencies: { react: '18' } }),
+            'b/package.json': JSON.stringify({ scripts: { build: 'vite build' }, dependencies: { react: '18' } }),
+        });
+        assert.strictEqual(selectRootDirectory(repo).relative, 'b');
+    });
+
+    it('fails with ROOT_DIR_AMBIGUOUS on a tie and lists the candidates', () => {
+        const result = selectRootDirectory(path.join(FIXTURES, 'two-frontends'));
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(result.failureReason, 'ROOT_DIR_AMBIGUOUS');
+        assert.deepStrictEqual(describeRootSelection(result), [
+            '[setup] could not choose a root directory: 2 folders are equally likely to be the frontend',
+            '[setup]   candidate: apps/admin (score 4: build script + react)',
+            '[setup]   candidate: apps/web (score 4: build script + react)',
+            '[setup] set the root directory in the project build settings to the folder you want to deploy',
+        ]);
+    });
+
+    it('fails when no candidate scores above zero, instead of picking the first folder', () => {
+        for (const name of ['subdir-only', 'server-only']) {
+            const result = selectRootDirectory(path.join(FIXTURES, name));
+            assert.strictEqual(result.ok, false, name);
+            assert.strictEqual(result.failureReason, 'ROOT_DIR_AMBIGUOUS', name);
+            assert.strictEqual(result.error, 'no folder has a build script or a frontend dependency', name);
+        }
+    });
+
+    it('fails when the repo has no package.json at all', () => {
+        const result = selectRootDirectory(path.join(FIXTURES, 'no-package'));
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(result.error, 'no package.json found in the repository root or two levels below it');
+    });
+
+    it('uses a configured root directory before detection', () => {
+        const result = selectRootDirectory(path.join(FIXTURES, 'two-frontends'), { configured: 'apps/web' });
+        assert.strictEqual(result.ok, true);
+        assert.strictEqual(result.relative, 'apps/web');
+        assert.strictEqual(result.reason, 'project setting');
+    });
+
+    it('fails instead of guessing when the configured root directory is invalid', () => {
+        const result = selectRootDirectory(path.join(FIXTURES, 'mern'), { configured: '../outside' });
+        assert.strictEqual(result.ok, false);
+        assert.match(result.error, /must not contain/);
+    });
+});
+
+describe('resolveInsideRepo', () => {
+    const repo = path.join(FIXTURES, 'mern');
+
+    it('accepts relative folders inside the repo, including "." and "./x/"', () => {
+        assert.strictEqual(resolveInsideRepo(repo, 'frontend'), fs.realpathSync(path.join(repo, 'frontend')));
+        assert.strictEqual(resolveInsideRepo(repo, './frontend/'), fs.realpathSync(path.join(repo, 'frontend')));
+        assert.strictEqual(resolveInsideRepo(repo, '.'), fs.realpathSync(repo));
+    });
+
+    it('rejects .. segments, absolute paths, empty values and missing folders', () => {
+        assert.throws(() => resolveInsideRepo(repo, '..'), /must not contain/);
+        assert.throws(() => resolveInsideRepo(repo, 'frontend/../../x'), /must not contain/);
+        assert.throws(() => resolveInsideRepo(repo, 'frontend\\..\\..'), /must not contain/);
+        assert.throws(() => resolveInsideRepo(repo, '/etc'), /relative/);
+        assert.throws(() => resolveInsideRepo(repo, 'C:\\Windows'), /relative/);
+        assert.throws(() => resolveInsideRepo(repo, '  '), /empty/);
+        assert.throws(() => resolveInsideRepo(repo, 'missing'), /does not exist/);
+    });
+
+    it('rejects a symlink that resolves outside the repo', () => {
+        const outside = makeTree({ 'secret/file.txt': 'x' });
+        const inside = makeTree({ 'package.json': '{}' });
+        fs.symlinkSync(path.join(outside, 'secret'), path.join(inside, 'link'), 'junction');
+        assert.throws(() => resolveInsideRepo(inside, 'link'), /outside the repository/);
+    });
+
+    it('accepts a symlink that stays inside the repo', () => {
+        const repoDir = makeTree({ 'real/package.json': '{}' });
+        fs.symlinkSync(path.join(repoDir, 'real'), path.join(repoDir, 'alias'), 'junction');
+        assert.strictEqual(resolveInsideRepo(repoDir, 'alias'), fs.realpathSync(path.join(repoDir, 'real')));
     });
 });
 

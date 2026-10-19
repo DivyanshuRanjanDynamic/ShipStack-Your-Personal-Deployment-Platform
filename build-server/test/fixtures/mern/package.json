@@ -1,0 +1,1 @@
+{"name":"mern-root","scripts":{"dev":"concurrently npm:server npm:client"},"devDependencies":{"concurrently":"^8.0.0"}}

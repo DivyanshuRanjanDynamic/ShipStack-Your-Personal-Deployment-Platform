@@ -10,7 +10,7 @@ const {
     createLocalObjectSink,
 } = require('./lib/sinks');
 const { runStep } = require('./lib/run-step');
-const { readPackageJson, findProjectDir } = require('./lib/detect');
+const { readPackageJson, selectRootDirectory, describeRootSelection } = require('./lib/detect');
 const { resolveInstallCommand, resolveBuildCommand } = require('./lib/install');
 const { findOutputDir } = require('./lib/output-dir');
 const { uploadDirectory } = require('./lib/upload');
@@ -126,13 +126,18 @@ async function init() {
         return;
     }
 
-    const projectDir = findProjectDir(repoPath);
-    const pkg = readPackageJson(projectDir);
-    if (pkg === null) {
-        await logSink.publish({ log: 'No package.json found in cloned repository!', step: 'build', exit_code: 1, failure_reason: 'NONZERO_EXIT' });
+    // Setup failures happen before install runs, so they are reported as the install step.
+    const root = selectRootDirectory(repoPath);
+    for (const line of describeRootSelection(root)) {
+        await logSink.publish({ log: line });
+    }
+    if (!root.ok) {
+        await logSink.publish({ log: `[install:end] exit_code=1`, step: 'install', event: 'step_end', exit_code: 1, failure_reason: root.failureReason });
         await fail();
         return;
     }
+    const projectDir = root.dir;
+    const pkg = readPackageJson(projectDir) || {};
     const buildCmd = resolveBuildCommand(pkg);
 
     await uploadBuildContext({
