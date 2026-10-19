@@ -42,9 +42,12 @@ RUN node -e "const fs=require('fs'),cp=require('child_process'); \
     console.log('installed node versions:',list.map(v=>v.version).join(', '))"
 
 # corepack provides the pnpm and yarn shims (versions come from the repo's packageManager
-# field or lockfile). Enable it for every installed major so switching Node keeps them.
-# Note: Node 16's bundled corepack ships old signing keys, so corepack-managed pnpm/yarn
-# downloads on Node 16 can fail; Node 16 projects typically use npm.
+# field or lockfile). Node's bundled corepack (0.29.x) ships signing keys that no longer match
+# the npm registry, so pnpm/yarn downloads fail with "Cannot find matching keyid"; install a
+# current corepack on each supported major to fix it. corepack@latest needs Node 18+, so Node 16
+# keeps its bundled corepack (a documented gap: corepack-managed pnpm/yarn on Node 16 may fail;
+# Node 16 projects typically use npm). Then enable the shims for every major.
+RUN for m in 18 20 22; do /opt/node/$m/bin/npm install -g corepack@latest; done
 RUN for m in 16 18 20 22; do /opt/node/$m/bin/corepack enable --install-directory /opt/node/$m/bin; done
 ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
