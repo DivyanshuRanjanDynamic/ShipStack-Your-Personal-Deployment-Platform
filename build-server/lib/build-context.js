@@ -10,19 +10,19 @@ const {
  * Builds the build-context.json document (schema: ai-service/contracts/build-context.ts).
  * Never include env var values.
  */
-function createBuildContext({ projectDir, deploymentId, gitUrl, buildCommand, expectedOutputDir, nodeVersion = process.version, now = new Date() }) {
+function createBuildContext({ projectDir, installDir = projectDir, packageManager = null, deploymentId, gitUrl, buildCommand, expectedOutputDir, nodeVersion = process.version, now = new Date() }) {
     const pkg = readPackageJson(projectDir) || {};
     return {
         deployment_id: deploymentId,
         git_url: gitUrl,
         framework: detectFramework(pkg),
-        package_manager: detectPackageManager(projectDir),
+        package_manager: packageManager || detectPackageManager(installDir),
         node_version: nodeVersion,
         engines: pkg.engines || null,
         scripts: pkg.scripts || null,
         build_command: buildCommand,
         expected_output_dir: expectedOutputDir,
-        has_lockfile: hasLockfile(projectDir),
+        has_lockfile: hasLockfile(installDir),
         captured_at: now.toISOString()
     };
 }
