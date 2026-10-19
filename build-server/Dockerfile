@@ -17,6 +17,7 @@ WORKDIR /home/app
 
 COPY main.sh main.sh
 COPY script.js script.js
+COPY lib lib
 COPY package*.json .
 COPY kafka.pem kafka.pem
 
