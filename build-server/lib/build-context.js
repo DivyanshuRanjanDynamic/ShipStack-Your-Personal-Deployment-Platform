@@ -10,7 +10,22 @@ const {
  * Builds the build-context.json document (schema: ai-service/contracts/build-context.ts).
  * Never include env var values.
  */
-function createBuildContext({ projectDir, installDir = projectDir, packageManager = null, deploymentId, gitUrl, buildCommand, expectedOutputDir, nodeVersion = process.version, now = new Date() }) {
+function createBuildContext({
+    projectDir,
+    installDir = projectDir,
+    packageManager = null,
+    deploymentId,
+    gitUrl,
+    buildCommand,
+    expectedOutputDir,
+    nodeVersion = process.version,
+    rootDirectory = null,
+    installCommand = null,
+    nodeSelectedFrom = null,
+    legacyOpenSSL = false,
+    outputDirResolved = null,
+    now = new Date(),
+}) {
     const pkg = readPackageJson(projectDir) || {};
     return {
         deployment_id: deploymentId,
@@ -23,7 +38,13 @@ function createBuildContext({ projectDir, installDir = projectDir, packageManage
         build_command: buildCommand,
         expected_output_dir: expectedOutputDir,
         has_lockfile: hasLockfile(installDir),
-        captured_at: now.toISOString()
+        captured_at: now.toISOString(),
+        // Truthful, resolved details (Step 9). Never include env var values.
+        root_directory: rootDirectory,
+        install_command: installCommand,
+        node_selected_from: nodeSelectedFrom,
+        legacy_openssl: legacyOpenSSL,
+        output_dir_resolved: outputDirResolved,
     };
 }
 
