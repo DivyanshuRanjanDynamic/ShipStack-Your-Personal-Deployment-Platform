@@ -10,10 +10,10 @@ const {
     createLocalObjectSink,
 } = require('./lib/sinks');
 const { runStep, runCommand, startShell } = require('./lib/run-step');
-const { selectRootDirectory, describeRootSelection, readPackageJson } = require('./lib/detect');
+const { selectRootDirectory, describeRootSelection, readPackageJson, detectFramework } = require('./lib/detect');
 const { planInstall, runInstall, planBuild } = require('./lib/install');
 const { selectNodeForProject, needsLegacyOpenSSL, appendNodeOption, describeNodeSelection } = require('./lib/node-version');
-const { findOutputDir } = require('./lib/output-dir');
+const { resolveOutputDir } = require('./lib/output-dir');
 const { uploadDirectory } = require('./lib/upload');
 const { createBuildContext, uploadBuildContext } = require('./lib/build-context');
 
@@ -205,6 +205,7 @@ async function init() {
 
     // 3. Build Step
     console.log(`Running build command: ${buildCmd}`);
+    const buildStartedMs = Date.now();
     const build = await runStep({
         start: () => startShell(buildCmd, { cwd: projectDir, env: childEnv }),
         stepName: 'build',
@@ -223,20 +224,19 @@ async function init() {
     // 4. Upload Step
     await logSink.publish({ log: `[upload:start]`, step: 'upload', event: 'step_start' });
 
-    const distFolderPath = findOutputDir(projectDir);
-    if (!distFolderPath) {
-        console.error(`Error: Neither 'dist' nor 'build' directory exists in '${projectDir}'.`);
-        await logSink.publish({ log: `Error: Neither 'dist' nor 'build' directory exists in '${projectDir}'.` });
-        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: 'UPLOAD_EMPTY' });
+    const output = resolveOutputDir({ projectDir, framework: detectFramework(projectPkg), buildStartedMs });
+    if (!output.ok) {
+        for (const line of output.logLines) {
+            await logSink.publish({ log: line, step: 'upload' });
+        }
+        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: output.failureReason });
         await fail();
         return;
     }
-
-    if (fs.readdirSync(distFolderPath, { recursive: true }).length === 0) {
-        await logSink.publish({ log: `Error: output directory is empty.` });
-        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: 'UPLOAD_EMPTY' });
-        await fail();
-        return;
+    const distFolderPath = output.dir;
+    await logSink.publish({ log: `[upload] output directory: ${output.relative}`, step: 'upload' });
+    if (output.warning) {
+        await logSink.publish({ log: `[upload] ${output.warning}`, step: 'upload' });
     }
 
     if (echo) console.log('Starting to upload to S3...');
