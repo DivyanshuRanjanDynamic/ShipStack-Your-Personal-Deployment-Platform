@@ -11,7 +11,9 @@ import { z } from "zod";
 export const BuildContext = z.object({
   deployment_id: z.string().min(1),
   git_url: z.string().url(),
-  framework: z.enum(["vite", "cra", "next", "unknown"]).nullable(),
+  framework: z
+    .enum(["vite", "cra", "next", "gatsby", "angular", "astro", "vue", "svelte", "unknown"])
+    .nullable(),
   package_manager: z.enum(["npm", "yarn", "pnpm"]).nullable(),
   node_version: z.string().nullable(),
   engines: z.record(z.string()).nullable(),

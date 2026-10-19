@@ -16,12 +16,17 @@ function allDependencies(pkg) {
     return { ...((pkg && pkg.dependencies) || {}), ...((pkg && pkg.devDependencies) || {}) };
 }
 
-// Framework label used in build-context.json.
+// Framework label used in build-context.json and for output-directory rules.
 function detectFramework(pkg) {
     const deps = allDependencies(pkg);
     if (deps.next) return 'next';
+    if (deps.gatsby) return 'gatsby';
+    if (deps['@angular/core']) return 'angular';
+    if (deps.astro) return 'astro';
     if (deps['react-scripts']) return 'cra';
     if (deps.vite) return 'vite';
+    if (deps.vue || deps['@vue/cli-service']) return 'vue';
+    if (deps.svelte) return 'svelte';
     return 'unknown';
 }
 
