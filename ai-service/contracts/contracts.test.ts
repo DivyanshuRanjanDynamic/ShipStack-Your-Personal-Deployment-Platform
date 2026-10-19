@@ -51,6 +51,25 @@ describe("BuildContext schema", () => {
     };
     expect(BuildContext.safeParse(payload).success).toBe(false);
   });
+
+  it("accepts the extended framework labels", () => {
+    const base = {
+      deployment_id: "dep_123",
+      git_url: "https://github.com/foo/bar",
+      package_manager: null,
+      node_version: null,
+      engines: null,
+      scripts: null,
+      build_command: null,
+      expected_output_dir: null,
+      has_lockfile: false,
+      captured_at: "2026-10-09T15:30:00Z",
+    };
+    for (const framework of ["gatsby", "angular", "astro", "vue", "svelte"]) {
+      expect(BuildContext.safeParse({ ...base, framework }).success).toBe(true);
+    }
+    expect(BuildContext.safeParse({ ...base, framework: "handwritten" }).success).toBe(false);
+  });
 });
 
 describe("DiagnosisRequest schema", () => {

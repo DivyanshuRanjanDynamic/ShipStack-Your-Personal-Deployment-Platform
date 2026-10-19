@@ -193,6 +193,19 @@ describe('detectFramework', () => {
         assert.strictEqual(detectFramework({ devDependencies: { vite: '^5.0.0' } }), 'vite');
     });
 
+    it('detects gatsby, angular, astro, vue and svelte', () => {
+        assert.strictEqual(detectFramework({ dependencies: { gatsby: '5', react: '18' } }), 'gatsby');
+        assert.strictEqual(detectFramework({ dependencies: { '@angular/core': '17' } }), 'angular');
+        assert.strictEqual(detectFramework({ dependencies: { astro: '4' } }), 'astro');
+        assert.strictEqual(detectFramework({ dependencies: { vue: '3', '@vue/cli-service': '5' } }), 'vue');
+        assert.strictEqual(detectFramework({ dependencies: { svelte: '4' } }), 'svelte');
+    });
+
+    it('prefers next and gatsby over react-scripts/vite', () => {
+        assert.strictEqual(detectFramework({ dependencies: { next: '14', 'react-scripts': '5' } }), 'next');
+        assert.strictEqual(detectFramework({ dependencies: { gatsby: '5', 'react-scripts': '5' } }), 'gatsby');
+    });
+
     it('returns unknown otherwise', () => {
         assert.strictEqual(detectFramework({ dependencies: { express: '4' } }), 'unknown');
         assert.strictEqual(detectFramework({}), 'unknown');
