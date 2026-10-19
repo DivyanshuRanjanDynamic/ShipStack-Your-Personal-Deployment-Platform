@@ -10,8 +10,9 @@ const {
     createLocalObjectSink,
 } = require('./lib/sinks');
 const { runStep, runCommand, startShell } = require('./lib/run-step');
-const { selectRootDirectory, describeRootSelection } = require('./lib/detect');
+const { selectRootDirectory, describeRootSelection, readPackageJson } = require('./lib/detect');
 const { planInstall, runInstall, planBuild } = require('./lib/install');
+const { selectNodeForProject, needsLegacyOpenSSL, appendNodeOption, describeNodeSelection } = require('./lib/node-version');
 const { findOutputDir } = require('./lib/output-dir');
 const { uploadDirectory } = require('./lib/upload');
 const { createBuildContext, uploadBuildContext } = require('./lib/build-context');
@@ -137,6 +138,7 @@ async function init() {
         return;
     }
     const projectDir = root.dir;
+    const projectPkg = readPackageJson(projectDir) || {};
 
     const installPlan = planInstall({ repoPath, projectDir });
     for (const line of installPlan.logLines) {
@@ -149,6 +151,20 @@ async function init() {
         }
     }
 
+    // Node version and legacy OpenSSL decision; both apply to install and build.
+    const nodeSelection = selectNodeForProject({ projectDir, pkg: projectPkg, setting: process.env.NODE_VERSION || null });
+    const legacyOpenSSL = needsLegacyOpenSSL({ major: nodeSelection.major, pkg: projectPkg });
+    for (const line of describeNodeSelection(nodeSelection, legacyOpenSSL)) {
+        await logSink.publish({ log: line });
+    }
+
+    const childEnvOverrides = { PATH: `${nodeSelection.binDir}${path.delimiter}${process.env.PATH || ''}` };
+    const nodeOptions = legacyOpenSSL
+        ? appendNodeOption(process.env.NODE_OPTIONS, '--openssl-legacy-provider')
+        : (process.env.NODE_OPTIONS || '');
+    if (nodeOptions) childEnvOverrides.NODE_OPTIONS = nodeOptions;
+    const childEnv = { ...process.env, ...childEnvOverrides };
+
     await uploadBuildContext({
         objectSink,
         context: createBuildContext({
@@ -159,6 +175,7 @@ async function init() {
             gitUrl: GIT_REPOSITORY_URL,
             buildCommand: buildPlan && buildPlan.ok ? buildPlan.command : null,
             expectedOutputDir: 'dist', // Using 'dist' as a reasonable guess, will verify below
+            nodeVersion: nodeSelection.version,
         }),
     });
 
@@ -178,7 +195,7 @@ async function init() {
     console.log('Installing dependencies...');
     const install = await runInstall({
         plan: installPlan,
-        run: (command) => runCommand({ start: () => startShell(command, { cwd: installPlan.cwd }), stepName: 'install', logSink, echo }),
+        run: (command) => runCommand({ start: () => startShell(command, { cwd: installPlan.cwd, env: childEnv }), stepName: 'install', logSink, echo }),
         logSink,
     });
     if (!install.ok) {
@@ -189,7 +206,7 @@ async function init() {
     // 3. Build Step
     console.log(`Running build command: ${buildCmd}`);
     const build = await runStep({
-        start: () => startShell(buildCmd, { cwd: projectDir }),
+        start: () => startShell(buildCmd, { cwd: projectDir, env: childEnv }),
         stepName: 'build',
         failReason: 'NONZERO_EXIT',
         logSink,
