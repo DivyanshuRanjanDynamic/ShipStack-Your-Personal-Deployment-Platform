@@ -27,6 +27,7 @@ function recordingLogSink() {
         events,
         logs: () => events.map((e) => e.log),
         publish: async (event) => { events.push(event); },
+        publishLines: async (entries) => { for (const e of entries) events.push(e); },
         close: async () => { },
     };
 }

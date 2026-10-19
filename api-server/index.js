@@ -13,6 +13,9 @@ const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 
 const { createDiagnosisRouter } = require('./routes/diagnosis')
+const { statusTransitionFor } = require('./src/deployment-status')
+const { buildUserEnvJson, MAX_USER_ENV_BYTES } = require('./src/task-env')
+const { parseBuildSettings, buildSettingsEnv } = require('./src/build-settings')
 
 require('dotenv').config();
 
@@ -171,20 +174,45 @@ app.post('/project', async (req, res) => {
 
     const { gitURL, name, buildSettings, envVars } = safeParseResult.data
 
+    const parsedSettings = parseBuildSettings(buildSettings)
+    if (!parsedSettings.ok) {
+        return res.status(400).json({ message: `Invalid build settings: ${parsedSettings.error}` })
+    }
+
     try {
         const project = await prisma.project.create({
             data: {
                 gitUrl: gitURL,
                 name: name,
                 subDomain: generateSlug(),
-                buildSettings: buildSettings || null,
-                envVars: envVars || null
+                envVars: envVars || null,
+                ...parsedSettings.settings,
             },
         })
 
         return res.json({ status: "success", data: { project } })
     } catch (err) {
         return res.status(500).json({ error: "Failed to create project", details: err.message })
+    }
+})
+
+// Update a project's build settings (null fields mean auto-detect). The request body is the
+// settings object itself, e.g. { "rootDirectory": "frontend", "nodeVersion": "18" }.
+app.patch('/project/:id/build-settings', async (req, res) => {
+    const parsedSettings = parseBuildSettings(req.body)
+    if (!parsedSettings.ok) {
+        return res.status(400).json({ message: `Invalid build settings: ${parsedSettings.error}` })
+    }
+    try {
+        const updated = await prisma.project.update({
+            where: { id: req.params.id },
+            data: parsedSettings.settings,
+            select: { id: true, rootDirectory: true, installCommand: true, buildCommand: true, outputDirectory: true, nodeVersion: true },
+        })
+        return res.json({ status: "success", data: { buildSettings: updated } })
+    } catch (err) {
+        if (err.code === 'P2025') return res.status(404).json({ error: "Project not found" })
+        return res.status(500).json({ error: "Failed to update build settings", details: err.message })
     }
 })
 
@@ -212,6 +240,15 @@ app.post('/deploy', async (req, res) => {
     // fetch project from db
     const project = await prisma.project.findUnique({ where: { id: projectId } })
     if (!project) return res.status(404).json({ message: 'Project not found' })
+
+    // Serialize user env vars into a single USER_ENV_JSON value for the task.
+    const userEnvJson = buildUserEnvJson(project.envVars)
+    if (userEnvJson.tooLarge) {
+        return res.status(400).json({
+            error: `Project environment variables exceed ${MAX_USER_ENV_BYTES} bytes`,
+            details: `${userEnvJson.bytes} bytes across ${userEnvJson.count} variables`,
+        })
+    }
 
     // deployemnt create in db
 
@@ -279,12 +316,11 @@ app.post('/deploy', async (req, res) => {
                             name: 'KAFKA_USERNAME',
                             value: process.env.KAFKA_USERNAME,
                         },
-                        ...(Array.isArray(project.envVars)
-                            ? project.envVars
-                                .filter(e => e && e.key)
-                                .map(e => ({ name: String(e.key), value: String(e.value ?? '') }))
-                            : []
-                        )
+                        {
+                            name: 'USER_ENV_JSON',
+                            value: userEnvJson.json,
+                        },
+                        ...buildSettingsEnv(project),
                     ],
                 },
             ],
@@ -356,7 +392,7 @@ app.get('/logs/:id', async (req, res) => {
     const id = req.params.id
     try {
         const logsResult = await client.query({
-            query: `SELECT event_id, log, timestamp FROM log_events WHERE deployment_id = {id: String} ORDER BY timestamp ASC`,
+            query: `SELECT event_id, log, timestamp, seq FROM log_events WHERE deployment_id = {id: String} ORDER BY seq ASC, timestamp ASC`,
             query_params: { id },
             format: 'JSONEachRow'
         })
@@ -389,28 +425,33 @@ async function initKafkaConsumer() {
                 try {
                     const stringMessage = message.value.toString();
                     const parsedLogMessage = JSON.parse(stringMessage);
-                    const { log, PROJECT_ID, DEPLOYMENT_ID, step, event, exit_code, failure_reason } = parsedLogMessage;
+                    const { log, PROJECT_ID, DEPLOYMENT_ID, step, event, exit_code, failure_reason, seq } = parsedLogMessage;
 
                     if (PROJECT_ID && DEPLOYMENT_ID) {
                         valuesToInsert.push({
                             event_id: uuidv4(),
                             deployment_id: DEPLOYMENT_ID,
                             log: log,
+                            // Older messages have no seq; default to 0 so they still insert.
+                            seq: typeof seq === 'number' ? seq : 0,
                             metadata: JSON.stringify({ project_id: PROJECT_ID })
                         });
 
-                        // Update deployment status based on build progress log events
-                        if (log.includes('Starting the build process......')) {
+                        // Update deployment status based on build progress log events.
+                        // Status-text signals are only honored on platform lines (no step),
+                        // so a user's build output cannot spoof its deployment status.
+                        const transition = statusTransitionFor({ log, step, event, exit_code });
+                        if (transition === 'IN_PROGRESS') {
                             await prisma.deployment.update({
                                 where: { id: DEPLOYMENT_ID },
                                 data: { status: 'IN_PROGRESS' }
                             }).catch(err => console.error(`Error updating status to IN_PROGRESS:`, err.message));
-                        } else if (log.includes('Uploading to S3 Done!!!!!!')) {
+                        } else if (transition === 'SUCCESS') {
                             await prisma.deployment.update({
                                 where: { id: DEPLOYMENT_ID },
                                 data: { status: 'SUCCESS' }
                             }).catch(err => console.error(`Error updating status to SUCCESS:`, err.message));
-                        } else if (log.includes('Build process failed!') || log.includes('Error: Neither') || (event === 'step_end' && exit_code !== 0)) {
+                        } else if (transition === 'FAILURE') {
                             // Atomically mark deployment as FAILURE.
                             // If update count === 1, this is the first failure signal: publish diagnosis request.
                             // If update count === 0, it was already marked FAILURE by an earlier log line: skip duplicate publish.

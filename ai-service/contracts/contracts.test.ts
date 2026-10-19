@@ -51,6 +51,67 @@ describe("BuildContext schema", () => {
     };
     expect(BuildContext.safeParse(payload).success).toBe(false);
   });
+
+  it("accepts the truthful build detail fields, present or absent", () => {
+    const base = {
+      deployment_id: "dep_123",
+      git_url: "https://github.com/foo/bar",
+      framework: "vite",
+      package_manager: "pnpm",
+      node_version: "18.20.5",
+      engines: null,
+      scripts: null,
+      build_command: "pnpm run build",
+      expected_output_dir: "out",
+      has_lockfile: true,
+      captured_at: "2026-10-19T00:00:00Z",
+    };
+    // Absent (old payload) still validates.
+    expect(BuildContext.safeParse(base).success).toBe(true);
+    // Present with values.
+    expect(
+      BuildContext.safeParse({
+        ...base,
+        root_directory: "frontend",
+        install_command: "pnpm install --frozen-lockfile",
+        node_selected_from: 'engines.node ">=18"',
+        legacy_openssl: false,
+        output_dir_resolved: "out",
+      }).success
+    ).toBe(true);
+    // Present as null.
+    expect(
+      BuildContext.safeParse({
+        ...base,
+        root_directory: null,
+        install_command: null,
+        node_selected_from: null,
+        legacy_openssl: null,
+        output_dir_resolved: null,
+      }).success
+    ).toBe(true);
+    // Wrong type rejected.
+    expect(BuildContext.safeParse({ ...base, legacy_openssl: "nope" }).success).toBe(false);
+  });
+
+  it("accepts the extended framework labels", () => {
+    const base = {
+      deployment_id: "dep_123",
+      git_url: "https://github.com/foo/bar",
+      package_manager: null,
+      node_version: null,
+      engines: null,
+      scripts: null,
+      build_command: null,
+      expected_output_dir: null,
+      has_lockfile: false,
+      captured_at: "2026-10-09T15:30:00Z",
+    };
+    for (const framework of ["gatsby", "angular", "astro", "vue", "svelte"]) {
+      expect(BuildContext.safeParse({ ...base, framework }).success).toBe(true);
+    }
+    expect(BuildContext.safeParse({ ...base, framework: "handwritten" }).success).toBe(false);
+  });
 });
 
 describe("DiagnosisRequest schema", () => {

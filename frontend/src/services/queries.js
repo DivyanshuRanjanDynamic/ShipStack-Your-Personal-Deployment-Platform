@@ -10,6 +10,7 @@ import {
   getDiagnosis,
   getProjectEnvVars,
   updateProjectEnvVars,
+  updateProjectBuildSettings,
   TERMINAL_BUILD_STATES,
 } from './api';
 
@@ -167,6 +168,19 @@ export function useUpdateEnvVarsMutation() {
     mutationFn: ({ projectId, envVars }) => updateProjectEnvVars(projectId, envVars),
     onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.projectEnvVars(variables.projectId) });
+      queryClient.invalidateQueries({ queryKey: QUERY_KEYS.project(variables.projectId) });
+    },
+  });
+}
+
+/**
+ * Mutation to update a project's build settings (PATCH /project/:id/build-settings).
+ */
+export function useUpdateBuildSettingsMutation() {
+  const queryClient = useQueryClient();
+  return useMutation({
+    mutationFn: ({ projectId, settings }) => updateProjectBuildSettings(projectId, settings),
+    onSuccess: (data, variables) => {
       queryClient.invalidateQueries({ queryKey: QUERY_KEYS.project(variables.projectId) });
     },
   });

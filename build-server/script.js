@@ -1,4 +1,4 @@
-const { exec, execFile } = require("child_process");
+const { execFile } = require("child_process");
 const path = require("path");
 const fs = require("fs");
 const os = require("os");
@@ -9,12 +9,15 @@ const {
     createS3ObjectSink,
     createLocalObjectSink,
 } = require('./lib/sinks');
-const { runStep } = require('./lib/run-step');
-const { readPackageJson, findProjectDir } = require('./lib/detect');
-const { resolveInstallCommand, resolveBuildCommand } = require('./lib/install');
-const { findOutputDir } = require('./lib/output-dir');
+const { runStep, runCommand, startShell } = require('./lib/run-step');
+const { selectRootDirectory, describeRootSelection, readPackageJson, detectFramework } = require('./lib/detect');
+const { planInstall, runInstall, planBuild } = require('./lib/install');
+const { selectNodeForProject, needsLegacyOpenSSL, describeNodeSelection } = require('./lib/node-version');
+const { parseUserEnvJson, buildChildEnv } = require('./lib/env');
+const { resolveOutputDir } = require('./lib/output-dir');
 const { uploadDirectory } = require('./lib/upload');
 const { createBuildContext, uploadBuildContext } = require('./lib/build-context');
+const { readBuildSettings } = require('./lib/settings');
 
 // LOCAL_RUN=1: logs to stdout, objects to a local folder, no Kafka, no S3, no credentials.
 const LOCAL_RUN = process.env.LOCAL_RUN === '1';
@@ -126,34 +129,107 @@ async function init() {
         return;
     }
 
-    const projectDir = findProjectDir(repoPath);
-    const pkg = readPackageJson(projectDir);
-    if (pkg === null) {
-        await logSink.publish({ log: 'No package.json found in cloned repository!', step: 'build', exit_code: 1, failure_reason: 'NONZERO_EXIT' });
+    // Re-validate the project build settings the API sent; invalid ones are ignored.
+    const { settings, logLines: settingsLogLines } = readBuildSettings();
+    for (const line of settingsLogLines) {
+        await logSink.publish({ log: line });
+    }
+
+    // Setup failures happen before install runs, so they are reported as the install step.
+    const root = selectRootDirectory(repoPath, { configured: settings.rootDirectory });
+    for (const line of describeRootSelection(root)) {
+        await logSink.publish({ log: line });
+    }
+    if (!root.ok) {
+        await logSink.publish({ log: `[install:end] exit_code=1`, step: 'install', event: 'step_end', exit_code: 1, failure_reason: root.failureReason });
         await fail();
         return;
     }
-    const buildCmd = resolveBuildCommand(pkg);
+    const projectDir = root.dir;
+    const projectPkg = readPackageJson(projectDir) || {};
+
+    const installPlan = planInstall({ repoPath, projectDir, installCommand: settings.installCommand });
+    for (const line of installPlan.logLines) {
+        await logSink.publish({ log: line });
+    }
+    const buildPlan = installPlan.ok ? planBuild({ projectDir, manager: installPlan.manager, buildCommand: settings.buildCommand }) : null;
+    if (buildPlan) {
+        for (const line of buildPlan.logLines) {
+            await logSink.publish({ log: line });
+        }
+    }
+
+    // Node version and legacy OpenSSL decision; both apply to install and build.
+    const nodeSelection = selectNodeForProject({ projectDir, pkg: projectPkg, setting: settings.nodeVersion });
+    const legacyOpenSSL = needsLegacyOpenSSL({ major: nodeSelection.major, pkg: projectPkg });
+    for (const line of describeNodeSelection(nodeSelection, legacyOpenSSL)) {
+        await logSink.publish({ log: line });
+    }
+
+    // Child environment: an allowlist plus the user's project env vars, never a spread of the
+    // task environment, so platform secrets are not visible to install, build or their scripts.
+    const userEnvResult = parseUserEnvJson(process.env.USER_ENV_JSON);
+    if (userEnvResult.error) {
+        await logSink.publish({ log: `[setup] ${userEnvResult.error}; continuing without user environment variables` });
+    }
+    for (const { key, reason } of userEnvResult.rejected) {
+        await logSink.publish({ log: `[setup] ignoring user env var ${key} (${reason})` });
+    }
+    const { env: childEnv, appliedKeys, rejectedReservedKeys } = buildChildEnv({
+        nodeBinDir: nodeSelection.binDir,
+        legacyOpenSSL,
+        userEnv: userEnvResult.accepted,
+    });
+    if (appliedKeys.length > 0) {
+        await logSink.publish({ log: `[setup] applied ${appliedKeys.length} user environment variable(s): ${appliedKeys.join(', ')}` });
+    }
+    for (const key of rejectedReservedKeys) {
+        await logSink.publish({ log: `[setup] ignoring user env var ${key} (reserved by the build)` });
+    }
+
+    // Shared build-context fields; the output directory is filled in and re-uploaded after the build.
+    const buildContextBase = {
+        projectDir,
+        installDir: installPlan.ok ? installPlan.cwd : projectDir,
+        packageManager: installPlan.ok ? installPlan.manager : null,
+        deploymentId: DEPLOYMENT_ID,
+        gitUrl: GIT_REPOSITORY_URL,
+        buildCommand: buildPlan && buildPlan.ok ? buildPlan.command : null,
+        nodeVersion: nodeSelection.version,
+        rootDirectory: root.ok ? root.relative : null,
+        installCommand: installPlan.ok ? installPlan.command : null,
+        nodeSelectedFrom: nodeSelection.source,
+        legacyOpenSSL,
+    };
 
     await uploadBuildContext({
         objectSink,
         context: createBuildContext({
-            projectDir,
-            deploymentId: DEPLOYMENT_ID,
-            gitUrl: GIT_REPOSITORY_URL,
-            buildCommand: buildCmd,
-            expectedOutputDir: 'dist', // Using 'dist' as a reasonable guess, will verify below
+            ...buildContextBase,
+            // Before the build only a configured output directory is known; detection fills the rest.
+            expectedOutputDir: settings.outputDirectory || null,
+            outputDirResolved: null,
         }),
     });
 
+    if (!installPlan.ok) {
+        await logSink.publish({ log: `[install:end] exit_code=1`, step: 'install', event: 'step_end', exit_code: 1, failure_reason: installPlan.failureReason });
+        await fail();
+        return;
+    }
+    if (!buildPlan.ok) {
+        await logSink.publish({ log: `[build:end] exit_code=1`, step: 'build', event: 'step_end', exit_code: 1, failure_reason: buildPlan.failureReason });
+        await fail();
+        return;
+    }
+    const buildCmd = buildPlan.command;
+
     // 2. Install Step
     console.log('Installing dependencies...');
-    const install = await runStep({
-        start: () => exec(resolveInstallCommand(), { cwd: projectDir }),
-        stepName: 'install',
-        failReason: 'NONZERO_EXIT',
+    const install = await runInstall({
+        plan: installPlan,
+        run: (command) => runCommand({ start: () => startShell(command, { cwd: installPlan.cwd, env: childEnv }), stepName: 'install', logSink, echo }),
         logSink,
-        echo,
     });
     if (!install.ok) {
         await fail();
@@ -162,8 +238,9 @@ async function init() {
 
     // 3. Build Step
     console.log(`Running build command: ${buildCmd}`);
+    const buildStartedMs = Date.now();
     const build = await runStep({
-        start: () => exec(buildCmd, { cwd: projectDir }),
+        start: () => startShell(buildCmd, { cwd: projectDir, env: childEnv }),
         stepName: 'build',
         failReason: 'NONZERO_EXIT',
         logSink,
@@ -180,31 +257,54 @@ async function init() {
     // 4. Upload Step
     await logSink.publish({ log: `[upload:start]`, step: 'upload', event: 'step_start' });
 
-    const distFolderPath = findOutputDir(projectDir);
-    if (!distFolderPath) {
-        console.error(`Error: Neither 'dist' nor 'build' directory exists in '${projectDir}'.`);
-        await logSink.publish({ log: `Error: Neither 'dist' nor 'build' directory exists in '${projectDir}'.` });
-        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: 'UPLOAD_EMPTY' });
+    const output = resolveOutputDir({ projectDir, framework: detectFramework(projectPkg), buildStartedMs, configured: settings.outputDirectory });
+    if (!output.ok) {
+        for (const line of output.logLines) {
+            await logSink.publish({ log: line, step: 'upload' });
+        }
+        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: output.failureReason });
         await fail();
         return;
+    }
+    const distFolderPath = output.dir;
+    await logSink.publish({ log: `[upload] output directory: ${output.relative}`, step: 'upload' });
+    if (output.warning) {
+        await logSink.publish({ log: `[upload] ${output.warning}`, step: 'upload' });
     }
 
-    if (fs.readdirSync(distFolderPath, { recursive: true }).length === 0) {
-        await logSink.publish({ log: `Error: output directory is empty.` });
-        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: 'UPLOAD_EMPTY' });
-        await fail();
-        return;
-    }
+    // Re-upload the build-context with the resolved output directory. A failed upload is logged, not fatal.
+    await uploadBuildContext({
+        objectSink,
+        context: createBuildContext({
+            ...buildContextBase,
+            expectedOutputDir: output.relative,
+            outputDirResolved: output.relative,
+        }),
+    });
 
     if (echo) console.log('Starting to upload to S3...');
     await logSink.publish({ log: 'Starting to upload to S3...' });
 
-    await uploadDirectory({
-        dir: distFolderPath,
-        keyPrefix: `__outputs/${PROJECT_ID}`,
-        objectSink,
-        logSink,
+    const keyPrefix = `__outputs/${PROJECT_ID}`;
+    const uploadResult = await uploadDirectory({ dir: distFolderPath, keyPrefix, objectSink, logSink });
+    await logSink.publish({
+        log: `[upload] ${uploadResult.uploaded} file(s) uploaded, ${uploadResult.bytes} bytes, ${uploadResult.durationMs} ms`,
+        step: 'upload',
     });
+
+    // A deployment must never be reported successful with missing files.
+    const indexUploaded = uploadResult.files.includes('index.html') && !uploadResult.failedKeys.includes(`${keyPrefix}/index.html`);
+    if (uploadResult.failed > 0 || !indexUploaded) {
+        if (uploadResult.failed > 0) {
+            await logSink.publish({ log: `[upload] ${uploadResult.failed} file(s) failed to upload`, step: 'upload' });
+        }
+        if (!indexUploaded) {
+            await logSink.publish({ log: `[upload] index.html was not uploaded`, step: 'upload' });
+        }
+        await logSink.publish({ log: `[upload:end] exit_code=1`, step: 'upload', event: 'step_end', exit_code: 1, failure_reason: 'UPLOAD_FAILED' });
+        await fail();
+        return;
+    }
 
     await logSink.publish({ log: `[upload:end] exit_code=0`, step: 'upload', event: 'step_end', exit_code: 0 });
     if (echo) console.log('Uploading to S3 Done!!!!!!');

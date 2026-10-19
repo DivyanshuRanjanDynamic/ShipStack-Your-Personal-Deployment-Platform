@@ -25,6 +25,13 @@ model Project {
   updatedAt    DateTime     @updatedAt @map("updated_at")
   envVars      Json?        @map("env_vars")
   buildSettings Json?       @map("build_settings")
+  // Per-project build settings (null = auto-detect). Validated by the API and re-validated
+  // by the build-server, which receives them as BUILD_* / NODE_VERSION task env overrides.
+  rootDirectory    String?  @map("root_directory")
+  installCommand   String?  @map("install_command")
+  buildCommand     String?  @map("build_command")
+  outputDirectory  String?  @map("output_directory")
+  nodeVersion      String?  @map("node_version")
   deployments  Deployment[]
 }
 

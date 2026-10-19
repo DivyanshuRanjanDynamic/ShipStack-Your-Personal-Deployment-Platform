@@ -25,7 +25,7 @@ function fakeProducer({ failSend = false } = {}) {
 }
 
 describe('Kafka log sink', () => {
-    it('sends the existing payload shape on container-logs', async () => {
+    it('sends the payload shape the consumer reads, now with seq', async () => {
         const producer = fakeProducer();
         const sink = createKafkaLogSink({ producer, projectId: 'p1', deploymentId: 'd1' });
 
@@ -35,11 +35,12 @@ describe('Kafka log sink', () => {
         assert.strictEqual(producer.sent.length, 2);
         assert.strictEqual(producer.sent[0].topic, 'container-logs');
         assert.strictEqual(producer.sent[0].messages[0].key, 'log');
-        assert.deepStrictEqual(JSON.parse(producer.sent[0].messages[0].value), { log: 'hello', PROJECT_ID: 'p1', DEPLOYMENT_ID: 'd1' });
+        assert.deepStrictEqual(JSON.parse(producer.sent[0].messages[0].value), { log: 'hello', PROJECT_ID: 'p1', DEPLOYMENT_ID: 'd1', seq: 0 });
         assert.deepStrictEqual(JSON.parse(producer.sent[1].messages[0].value), {
             log: '[build:end] exit_code=2',
             PROJECT_ID: 'p1',
             DEPLOYMENT_ID: 'd1',
+            seq: 1,
             step: 'build',
             event: 'step_end',
             exit_code: 2,
@@ -52,6 +53,31 @@ describe('Kafka log sink', () => {
         const sink = createKafkaLogSink({ producer, projectId: 'p1', deploymentId: 'd1' });
         await sink.publish({ log: '[upload:end] exit_code=0', step: 'upload', event: 'step_end', exit_code: 0 });
         assert.strictEqual(JSON.parse(producer.sent[0].messages[0].value).exit_code, 0);
+    });
+
+    it('publishLines sends one Kafka message per line in a single send, with increasing seq', async () => {
+        const producer = fakeProducer();
+        const sink = createKafkaLogSink({ producer, projectId: 'p1', deploymentId: 'd1' });
+
+        await sink.publish({ log: 'first' });
+        await sink.publishLines([
+            { log: '[build] a', step: 'build' },
+            { log: '[build] b', step: 'build' },
+            { log: '[build] c', step: 'build' },
+        ]);
+
+        assert.strictEqual(producer.sent.length, 2); // one send for publish, one for the batch
+        assert.strictEqual(producer.sent[1].messages.length, 3);
+        const seqs = producer.sent[1].messages.map((m) => JSON.parse(m.value).seq);
+        assert.deepStrictEqual(seqs, [1, 2, 3]); // continues after the seq 0 from publish()
+        assert.deepStrictEqual(producer.sent[1].messages.map((m) => JSON.parse(m.value).log), ['[build] a', '[build] b', '[build] c']);
+    });
+
+    it('publishLines on an empty array sends nothing', async () => {
+        const producer = fakeProducer();
+        const sink = createKafkaLogSink({ producer, projectId: 'p1', deploymentId: 'd1' });
+        await sink.publishLines([]);
+        assert.strictEqual(producer.sent.length, 0);
     });
 
     it('does not throw when the broker fails', async () => {

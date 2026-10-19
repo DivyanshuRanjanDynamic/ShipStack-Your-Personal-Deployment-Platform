@@ -29,7 +29,8 @@ import {
   useProjectDeployments, 
   useProjectEnvVars, 
   useDeployMutation,
-  useUpdateEnvVarsMutation 
+  useUpdateEnvVarsMutation,
+  useUpdateBuildSettingsMutation
 } from '../services/queries';
 import { getProjectUrl, getDeploymentUrl } from '../types/api';
 
@@ -71,6 +72,45 @@ export default function ProjectDetailPage() {
 
   const deployMutation = useDeployMutation();
   const updateEnvMutation = useUpdateEnvVarsMutation();
+  const updateBuildSettingsMutation = useUpdateBuildSettingsMutation();
+
+  // Local state for the Build Settings editor (blank = auto-detect).
+  const EMPTY_SETTINGS = { rootDirectory: '', installCommand: '', buildCommand: '', outputDirectory: '', nodeVersion: '' };
+  const [buildSettings, setBuildSettings] = useState(EMPTY_SETTINGS);
+  const [settingsInitialized, setSettingsInitialized] = useState(false);
+  const [isSettingsSaved, setIsSettingsSaved] = useState(false);
+  const [settingsError, setSettingsError] = useState('');
+
+  // Sync server settings to local state on initial load.
+  if (!settingsInitialized && project) {
+    setBuildSettings({
+      rootDirectory: project.rootDirectory || '',
+      installCommand: project.installCommand || '',
+      buildCommand: project.buildCommand || '',
+      outputDirectory: project.outputDirectory || '',
+      nodeVersion: project.nodeVersion || '',
+    });
+    setSettingsInitialized(true);
+  }
+
+  const handleSaveBuildSettings = async () => {
+    setSettingsError('');
+    // Send blank fields as null (auto-detect).
+    const payload = {
+      rootDirectory: buildSettings.rootDirectory.trim() || null,
+      installCommand: buildSettings.installCommand.trim() || null,
+      buildCommand: buildSettings.buildCommand.trim() || null,
+      outputDirectory: buildSettings.outputDirectory.trim() || null,
+      nodeVersion: buildSettings.nodeVersion || null,
+    };
+    try {
+      await updateBuildSettingsMutation.mutateAsync({ projectId, settings: payload });
+      setIsSettingsSaved(true);
+      setTimeout(() => setIsSettingsSaved(false), 2500);
+    } catch (err) {
+      setSettingsError(err?.data?.message || err?.message || 'Failed to save build settings');
+    }
+  };
 
   // Local state for Environment Variables editor
   const [envVars, setEnvVars] = useState([]);
@@ -809,46 +849,71 @@ export default function ProjectDetailPage() {
               />
             </div>
 
-            {/* Build Specifications */}
+            {/* Build Settings — editable overrides; blank means auto-detect. */}
             <div style={{ paddingTop: '20px', borderTop: '1px solid #18181b' }}>
-              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', margin: '0 0 14px' }}>
-                Build Specifications
+              <h4 style={{ fontSize: '14px', fontWeight: 600, color: '#ffffff', margin: '0 0 4px' }}>
+                Build Settings
               </h4>
-              <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '14px' }}>
-                <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#71717a', marginBottom: '4px' }}>Framework</span>
-                  <div style={{ background: '#030303', border: '1px solid #27272a', borderRadius: '6px', padding: '8px 12px', color: '#ffffff', fontSize: '12px' }}>
-                    {project.buildSettings?.framework || 'React (Vite)'}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#71717a', marginBottom: '4px' }}>Root Directory</span>
-                  <div style={{ background: '#030303', border: '1px solid #27272a', borderRadius: '6px', padding: '8px 12px', color: '#ffffff', fontSize: '12px', fontFamily: 'monospace' }}>
-                    {project.buildSettings?.rootDir || './'}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#71717a', marginBottom: '4px' }}>Output Directory</span>
-                  <div style={{ background: '#030303', border: '1px solid #27272a', borderRadius: '6px', padding: '8px 12px', color: '#ffffff', fontSize: '12px', fontFamily: 'monospace' }}>
-                    {project.buildSettings?.outDir || 'dist'}
-                  </div>
-                </div>
-              </div>
+              <p style={{ fontSize: '12px', color: '#71717a', margin: '0 0 14px' }}>
+                Optional overrides. Leave a field blank to let ShipStack auto-detect it.
+              </p>
 
-              <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px' }}>
-                <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#71717a', marginBottom: '4px' }}>Install Command</span>
-                  <div style={{ background: '#030303', border: '1px solid #27272a', borderRadius: '6px', padding: '8px 12px', color: '#ffffff', fontSize: '12px', fontFamily: 'monospace' }}>
-                    {project.buildSettings?.installCmd || 'npm install'}
-                  </div>
-                </div>
-                <div>
-                  <span style={{ display: 'block', fontSize: '11px', color: '#71717a', marginBottom: '4px' }}>Build Command</span>
-                  <div style={{ background: '#030303', border: '1px solid #27272a', borderRadius: '6px', padding: '8px 12px', color: '#ffffff', fontSize: '12px', fontFamily: 'monospace' }}>
-                    {project.buildSettings?.buildCmd || 'npm run build'}
-                  </div>
-                </div>
-              </div>
+              {(() => {
+                const fieldStyle = { width: '100%', background: '#030303', border: '1px solid #27272a', borderRadius: '6px', padding: '8px 12px', color: '#ffffff', fontSize: '13px', fontFamily: 'monospace' };
+                const labelStyle = { display: 'block', fontSize: '11px', color: '#71717a', marginBottom: '4px' };
+                const setField = (k) => (e) => setBuildSettings((s) => ({ ...s, [k]: e.target.value }));
+                return (
+                  <>
+                    <div style={{ display: 'grid', gridTemplateColumns: 'repeat(3, 1fr)', gap: '14px', marginBottom: '14px' }}>
+                      <div>
+                        <label style={labelStyle}>Root Directory</label>
+                        <input type="text" value={buildSettings.rootDirectory} onChange={setField('rootDirectory')} placeholder="Auto-detect" style={fieldStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Output Directory</label>
+                        <input type="text" value={buildSettings.outputDirectory} onChange={setField('outputDirectory')} placeholder="Auto-detect" style={fieldStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Node Version</label>
+                        <select value={buildSettings.nodeVersion} onChange={setField('nodeVersion')} style={{ ...fieldStyle, fontFamily: 'inherit' }}>
+                          <option value="">Auto-detect</option>
+                          {['16', '18', '20', '22'].map((v) => (
+                            <option key={v} value={v}>Node {v}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+
+                    <div style={{ display: 'grid', gridTemplateColumns: '1fr 1fr', gap: '14px', marginBottom: '16px' }}>
+                      <div>
+                        <label style={labelStyle}>Install Command</label>
+                        <input type="text" value={buildSettings.installCommand} onChange={setField('installCommand')} placeholder="Auto-detect" style={fieldStyle} />
+                      </div>
+                      <div>
+                        <label style={labelStyle}>Build Command</label>
+                        <input type="text" value={buildSettings.buildCommand} onChange={setField('buildCommand')} placeholder="Auto-detect" style={fieldStyle} />
+                      </div>
+                    </div>
+
+                    {settingsError && (
+                      <p style={{ color: '#f87171', fontSize: '12px', margin: '0 0 12px' }}>{settingsError}</p>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={handleSaveBuildSettings}
+                      disabled={updateBuildSettingsMutation.isPending}
+                      style={{
+                        padding: '9px 18px', fontSize: '13px', fontWeight: 600, borderRadius: '8px', border: 'none', cursor: 'pointer',
+                        background: isSettingsSaved ? '#16a34a' : 'linear-gradient(135deg, #9333ea, #0070f3)', color: '#fff',
+                        opacity: updateBuildSettingsMutation.isPending ? 0.7 : 1,
+                      }}
+                    >
+                      {updateBuildSettingsMutation.isPending ? 'Saving…' : isSettingsSaved ? 'Saved ✓' : 'Save Build Settings'}
+                    </button>
+                  </>
+                );
+              })()}
             </div>
           </div>
         )}

@@ -1,26 +1,63 @@
-FROM  ubuntu:focal
+FROM ubuntu:24.04
 
-# Update and upgrade package list
-RUN apt-get update 
-# install curl
-RUN apt-get install -y curl
-# Install node
-RUN curl -sL https://deb.nodesource.com/setup_22.x | bash -
-RUN apt-get upgrade -y
-RUN apt-get install -y nodejs
+# ubuntu:focal is past standard support; 24.04 is the current LTS.
+RUN apt-get update \
+    && apt-get install -y --no-install-recommends curl ca-certificates git xz-utils \
+    && rm -rf /var/lib/apt/lists/*
 
-# Install git
-RUN apt-get install git -y
+# Several Node majors, pre-installed so builds never download Node at run time.
+# Node 16 is end-of-life and is kept only for legacy projects.
+ENV NODE_VERSION_16=16.20.2 \
+    NODE_VERSION_18=18.20.5 \
+    NODE_VERSION_20=20.18.1 \
+    NODE_VERSION_22=22.12.0
+RUN set -eux; \
+    arch="$(dpkg --print-architecture)"; \
+    case "$arch" in \
+    amd64) nodearch='x64' ;; \
+    arm64) nodearch='arm64' ;; \
+    *) echo "unsupported architecture: $arch" >&2; exit 1 ;; \
+    esac; \
+    mkdir -p /opt/node; \
+    for v in "$NODE_VERSION_16" "$NODE_VERSION_18" "$NODE_VERSION_20" "$NODE_VERSION_22"; do \
+    major="${v%%.*}"; \
+    tarball="node-v${v}-linux-${nodearch}.tar.xz"; \
+    curl -fsSLO "https://nodejs.org/dist/v${v}/${tarball}"; \
+    curl -fsSL "https://nodejs.org/dist/v${v}/SHASUMS256.txt" -o SHASUMS256.txt; \
+    grep " ${tarball}\$" SHASUMS256.txt | sha256sum -c -; \
+    mkdir -p "/opt/node/${major}"; \
+    tar -xJf "${tarball}" -C "/opt/node/${major}" --strip-components=1; \
+    rm -f "${tarball}" SHASUMS256.txt; \
+    done
+
+# Node 22 is the default on PATH; the build-server process itself runs on it.
+ENV PATH=/opt/node/22/bin:$PATH
+
+# Manifest the build-server reads at run time to pick a Node version per build.
+RUN node -e "const fs=require('fs'),cp=require('child_process'); \
+    const list=fs.readdirSync('/opt/node').filter(d=>/^[0-9]+$/.test(d)) \
+    .map(m=>({major:Number(m),version:cp.execFileSync('/opt/node/'+m+'/bin/node',['-v'],{encoding:'utf8'}).trim().replace(/^v/,''),binDir:'/opt/node/'+m+'/bin'})) \
+    .sort((a,b)=>a.major-b.major); \
+    fs.writeFileSync('/opt/node/versions.json',JSON.stringify(list,null,2)); \
+    console.log('installed node versions:',list.map(v=>v.version).join(', '))"
+
+# corepack provides the pnpm and yarn shims (versions come from the repo's packageManager
+# field or lockfile). Node's bundled corepack (0.29.x) ships signing keys that no longer match
+# the npm registry, so pnpm/yarn downloads fail with "Cannot find matching keyid"; install a
+# current corepack on each supported major to fix it. corepack@latest needs Node 18+, so Node 16
+# keeps its bundled corepack (a documented gap: corepack-managed pnpm/yarn on Node 16 may fail;
+# Node 16 projects typically use npm). Then enable the shims for every major.
+RUN for m in 18 20 22; do /opt/node/$m/bin/npm install -g corepack@latest; done
+RUN for m in 16 18 20 22; do /opt/node/$m/bin/corepack enable --install-directory /opt/node/$m/bin; done
+ENV COREPACK_ENABLE_DOWNLOAD_PROMPT=0
 
 WORKDIR /home/app
-
 
 COPY main.sh main.sh
 COPY script.js script.js
 COPY lib lib
 COPY package*.json .
 COPY kafka.pem kafka.pem
-
 
 RUN npm install
 
@@ -34,5 +71,3 @@ RUN chown -R appuser:appuser /home/app
 USER appuser
 
 ENTRYPOINT [ "/home/app/main.sh" ]
-
-

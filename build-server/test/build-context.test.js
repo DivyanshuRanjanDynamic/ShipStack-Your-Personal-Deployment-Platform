@@ -7,6 +7,7 @@ const { createBuildContext, buildContextKey, uploadBuildContext } = require('../
 const CONTRACT_FIELDS = [
     'deployment_id', 'git_url', 'framework', 'package_manager', 'node_version', 'engines',
     'scripts', 'build_command', 'expected_output_dir', 'has_lockfile', 'captured_at',
+    'root_directory', 'install_command', 'node_selected_from', 'legacy_openssl', 'output_dir_resolved',
 ];
 
 describe('createBuildContext', () => {
@@ -22,6 +23,11 @@ describe('createBuildContext', () => {
             buildCommand: 'npm run build',
             expectedOutputDir: 'dist',
             nodeVersion: 'v22.0.0',
+            rootDirectory: 'frontend',
+            installCommand: 'npm install',
+            nodeSelectedFrom: 'engines.node ">=18"',
+            legacyOpenSSL: false,
+            outputDirResolved: 'dist',
             now: new Date('2026-10-19T00:00:00Z'),
         });
         assert.deepStrictEqual(Object.keys(ctx).sort(), [...CONTRACT_FIELDS].sort());
@@ -37,14 +43,24 @@ describe('createBuildContext', () => {
             expected_output_dir: 'dist',
             has_lockfile: true,
             captured_at: '2026-10-19T00:00:00.000Z',
+            root_directory: 'frontend',
+            install_command: 'npm install',
+            node_selected_from: 'engines.node ">=18"',
+            legacy_openssl: false,
+            output_dir_resolved: 'dist',
         });
     });
 
-    it('uses null for missing engines and scripts', () => {
-        const ctx = createBuildContext({ projectDir: makeTree({ 'package.json': '{}' }), deploymentId: 'd1', gitUrl: 'https://x.y/z', buildCommand: 'b', expectedOutputDir: 'dist' });
+    it('defaults the truthful fields to null/false when not provided', () => {
+        const ctx = createBuildContext({ projectDir: makeTree({ 'package.json': '{}' }), deploymentId: 'd1', gitUrl: 'https://x.y/z', buildCommand: 'b', expectedOutputDir: null });
         assert.strictEqual(ctx.engines, null);
         assert.strictEqual(ctx.scripts, null);
         assert.strictEqual(ctx.has_lockfile, false);
+        assert.strictEqual(ctx.root_directory, null);
+        assert.strictEqual(ctx.install_command, null);
+        assert.strictEqual(ctx.node_selected_from, null);
+        assert.strictEqual(ctx.legacy_openssl, false);
+        assert.strictEqual(ctx.output_dir_resolved, null);
     });
 });
 
