@@ -15,6 +15,7 @@ const protoLoader = require('@grpc/proto-loader')
 const { createDiagnosisRouter } = require('./routes/diagnosis')
 const { statusTransitionFor } = require('./src/deployment-status')
 const { buildUserEnvJson, MAX_USER_ENV_BYTES } = require('./src/task-env')
+const { parseBuildSettings, buildSettingsEnv } = require('./src/build-settings')
 
 require('dotenv').config();
 
@@ -173,20 +174,45 @@ app.post('/project', async (req, res) => {
 
     const { gitURL, name, buildSettings, envVars } = safeParseResult.data
 
+    const parsedSettings = parseBuildSettings(buildSettings)
+    if (!parsedSettings.ok) {
+        return res.status(400).json({ message: `Invalid build settings: ${parsedSettings.error}` })
+    }
+
     try {
         const project = await prisma.project.create({
             data: {
                 gitUrl: gitURL,
                 name: name,
                 subDomain: generateSlug(),
-                buildSettings: buildSettings || null,
-                envVars: envVars || null
+                envVars: envVars || null,
+                ...parsedSettings.settings,
             },
         })
 
         return res.json({ status: "success", data: { project } })
     } catch (err) {
         return res.status(500).json({ error: "Failed to create project", details: err.message })
+    }
+})
+
+// Update a project's build settings (null fields mean auto-detect). The request body is the
+// settings object itself, e.g. { "rootDirectory": "frontend", "nodeVersion": "18" }.
+app.patch('/project/:id/build-settings', async (req, res) => {
+    const parsedSettings = parseBuildSettings(req.body)
+    if (!parsedSettings.ok) {
+        return res.status(400).json({ message: `Invalid build settings: ${parsedSettings.error}` })
+    }
+    try {
+        const updated = await prisma.project.update({
+            where: { id: req.params.id },
+            data: parsedSettings.settings,
+            select: { id: true, rootDirectory: true, installCommand: true, buildCommand: true, outputDirectory: true, nodeVersion: true },
+        })
+        return res.json({ status: "success", data: { buildSettings: updated } })
+    } catch (err) {
+        if (err.code === 'P2025') return res.status(404).json({ error: "Project not found" })
+        return res.status(500).json({ error: "Failed to update build settings", details: err.message })
     }
 })
 
@@ -293,7 +319,8 @@ app.post('/deploy', async (req, res) => {
                         {
                             name: 'USER_ENV_JSON',
                             value: userEnvJson.json,
-                        }
+                        },
+                        ...buildSettingsEnv(project),
                     ],
                 },
             ],
