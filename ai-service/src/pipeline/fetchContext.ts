@@ -110,7 +110,7 @@ export async function fetchContext(
         const controller = new AbortController();
         const timeout = setTimeout(() => controller.abort(), 10000); // 10s timeout
 
-        const querySql = `SELECT event_id, log, timestamp FROM log_events WHERE deployment_id = {deployment_id: String} ORDER BY timestamp ASC LIMIT {limit: UInt32}`;
+        const querySql = `SELECT event_id, log, timestamp, seq FROM log_events WHERE deployment_id = {deployment_id: String} ORDER BY seq ASC, timestamp ASC LIMIT {limit: UInt32}`;
         const queryUrl = new URL(clickhouseHost);
         queryUrl.searchParams.set("param_deployment_id", request.deployment_id);
         queryUrl.searchParams.set("param_limit", String(limit));
