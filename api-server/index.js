@@ -14,6 +14,7 @@ const protoLoader = require('@grpc/proto-loader')
 
 const { createDiagnosisRouter } = require('./routes/diagnosis')
 const { statusTransitionFor } = require('./src/deployment-status')
+const { buildUserEnvJson, MAX_USER_ENV_BYTES } = require('./src/task-env')
 
 require('dotenv').config();
 
@@ -214,6 +215,15 @@ app.post('/deploy', async (req, res) => {
     const project = await prisma.project.findUnique({ where: { id: projectId } })
     if (!project) return res.status(404).json({ message: 'Project not found' })
 
+    // Serialize user env vars into a single USER_ENV_JSON value for the task.
+    const userEnvJson = buildUserEnvJson(project.envVars)
+    if (userEnvJson.tooLarge) {
+        return res.status(400).json({
+            error: `Project environment variables exceed ${MAX_USER_ENV_BYTES} bytes`,
+            details: `${userEnvJson.bytes} bytes across ${userEnvJson.count} variables`,
+        })
+    }
+
     // deployemnt create in db
 
     const newDeploymnet = await prisma.deployment.create({
@@ -280,12 +290,10 @@ app.post('/deploy', async (req, res) => {
                             name: 'KAFKA_USERNAME',
                             value: process.env.KAFKA_USERNAME,
                         },
-                        ...(Array.isArray(project.envVars)
-                            ? project.envVars
-                                .filter(e => e && e.key)
-                                .map(e => ({ name: String(e.key), value: String(e.value ?? '') }))
-                            : []
-                        )
+                        {
+                            name: 'USER_ENV_JSON',
+                            value: userEnvJson.json,
+                        }
                     ],
                 },
             ],
