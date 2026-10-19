@@ -1,3 +1,4 @@
+const fs = require('fs');
 const path = require('path');
 const {
     readPackageJson,
@@ -33,13 +34,43 @@ const RETRIES = {
     },
 };
 
+// Without a packageManager field corepack runs the newest pnpm, which can reject old lockfiles
+// or fail on dependency build scripts (ERR_PNPM_IGNORED_BUILDS). Pin the pnpm release line
+// that writes the lockfile's format instead. Verified with corepack in the build image.
+const PNPM_FOR_LOCKFILE = [
+    [/^9\./, '9.15.9'],
+    [/^6\./, '8.15.9'],
+    [/^5\.4$/, '7.33.7'],
+    [/^5\./, '6.35.1'],
+];
+
+// lockfileVersion from the top of pnpm-lock.yaml ("lockfileVersion: '9.0'" or "lockfileVersion: 5.4"), or null.
+function pnpmLockfileVersion(dir) {
+    try {
+        const head = fs.readFileSync(path.join(dir, 'pnpm-lock.yaml'), 'utf8').slice(0, 512);
+        const match = head.match(/^lockfileVersion:\s*['"]?([0-9][0-9.]*)['"]?\s*$/m);
+        return match ? match[1] : null;
+    } catch {
+        return null;
+    }
+}
+
+function pnpmVersionForLockfile(lockfileVersion) {
+    if (!lockfileVersion) return null;
+    const entry = PNPM_FOR_LOCKFILE.find(([pattern]) => pattern.test(lockfileVersion));
+    return entry ? entry[1] : null;
+}
+
 /**
  * Decides where and how to install.
  * - Installs from the repo root when it is a workspace root, otherwise in the project folder.
  * - A configured install command replaces detection and retries.
  * - npm cannot install `workspace:` dependencies: UNSUPPORTED_PROJECT.
  *
- * Returns { ok: true, cwd, manager, managerSource, command, retry, logLines }
+ * - pnpm without a packageManager field is pinned to the release that matches pnpm-lock.yaml
+ *   (`pnpmPin`); the caller puts a `pnpm` shim for that version on PATH.
+ *
+ * Returns { ok: true, cwd, manager, managerSource, command, retry, pnpmPin, logLines }
  *      or { ok: false, failureReason, logLines }.
  */
 function planInstall({ repoPath, projectDir, installCommand = null }) {
@@ -50,9 +81,18 @@ function planInstall({ repoPath, projectDir, installCommand = null }) {
     const logLines = [];
     if (ignored) logLines.push(`[setup] packageManager "${ignored}" is not supported; detecting from lockfiles`);
 
+    let pnpmPin = null;
+    if (manager === 'pnpm' && !source.startsWith('packageManager')) {
+        const lockfileVersion = pnpmLockfileVersion(cwd);
+        pnpmPin = pnpmVersionForLockfile(lockfileVersion);
+        logLines.push(pnpmPin
+            ? `[setup] pnpm ${pnpmPin} pinned (source: pnpm-lock.yaml lockfileVersion ${lockfileVersion}; no packageManager field)`
+            : `[setup] no packageManager field and unrecognized pnpm-lock.yaml lockfileVersion ${lockfileVersion || '(missing)'}; using corepack's default pnpm`);
+    }
+
     if (installCommand) {
         logLines.push(`[setup] install command: ${installCommand} (source: project setting, in ${where})`);
-        return { ok: true, cwd, manager, managerSource: source, command: installCommand, retry: null, logLines };
+        return { ok: true, cwd, manager, managerSource: source, command: installCommand, retry: null, pnpmPin, logLines };
     }
 
     logLines.push(`[setup] package manager: ${manager} (source: ${source})`);
@@ -67,7 +107,19 @@ function planInstall({ repoPath, projectDir, installCommand = null }) {
 
     const command = INSTALL_COMMANDS[manager];
     logLines.push(`[setup] install command: ${command} (in ${where})`);
-    return { ok: true, cwd, manager, managerSource: source, command, retry: RETRIES[manager], logLines };
+    return { ok: true, cwd, manager, managerSource: source, command, retry: RETRIES[manager], pnpmPin, logLines };
+}
+
+/**
+ * Writes an executable `pnpm` shim into `dir` that runs the pinned version through corepack,
+ * so install, build and any `pnpm` a package script calls all use the same release.
+ */
+function writePnpmShim(dir, version) {
+    fs.mkdirSync(dir, { recursive: true });
+    const file = path.join(dir, 'pnpm');
+    fs.writeFileSync(file, `#!/bin/sh\nexec corepack pnpm@${version} "$@"\n`);
+    fs.chmodSync(file, 0o755);
+    return file;
 }
 
 /**
@@ -111,4 +163,13 @@ function planBuild({ projectDir, manager, buildCommand = null }) {
     };
 }
 
-module.exports = { INSTALL_COMMANDS, RETRIES, planInstall, runInstall, planBuild };
+module.exports = {
+    INSTALL_COMMANDS,
+    RETRIES,
+    pnpmLockfileVersion,
+    pnpmVersionForLockfile,
+    planInstall,
+    runInstall,
+    planBuild,
+    writePnpmShim,
+};
