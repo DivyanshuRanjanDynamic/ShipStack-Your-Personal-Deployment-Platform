@@ -365,7 +365,7 @@ app.get('/logs/:id', async (req, res) => {
     const id = req.params.id
     try {
         const logsResult = await client.query({
-            query: `SELECT event_id, log, timestamp FROM log_events WHERE deployment_id = {id: String} ORDER BY timestamp ASC`,
+            query: `SELECT event_id, log, timestamp, seq FROM log_events WHERE deployment_id = {id: String} ORDER BY seq ASC, timestamp ASC`,
             query_params: { id },
             format: 'JSONEachRow'
         })
@@ -398,13 +398,15 @@ async function initKafkaConsumer() {
                 try {
                     const stringMessage = message.value.toString();
                     const parsedLogMessage = JSON.parse(stringMessage);
-                    const { log, PROJECT_ID, DEPLOYMENT_ID, step, event, exit_code, failure_reason } = parsedLogMessage;
+                    const { log, PROJECT_ID, DEPLOYMENT_ID, step, event, exit_code, failure_reason, seq } = parsedLogMessage;
 
                     if (PROJECT_ID && DEPLOYMENT_ID) {
                         valuesToInsert.push({
                             event_id: uuidv4(),
                             deployment_id: DEPLOYMENT_ID,
                             log: log,
+                            // Older messages have no seq; default to 0 so they still insert.
+                            seq: typeof seq === 'number' ? seq : 0,
                             metadata: JSON.stringify({ project_id: PROJECT_ID })
                         });
 
