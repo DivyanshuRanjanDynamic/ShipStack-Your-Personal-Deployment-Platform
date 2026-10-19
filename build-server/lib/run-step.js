@@ -1,4 +1,5 @@
 const { spawn } = require('child_process');
+const { createLineBuffer } = require('./log-lines');
 
 const TAIL_MAX_LINES = 200;
 const TAIL_MAX_BYTES = 64 * 1024;
@@ -42,31 +43,48 @@ function startShell(command, options) {
 function runCommand({ start, stepName, logSink, echo = true }) {
     return new Promise((resolve) => {
         const tail = createOutputTail();
+        const outLines = createLineBuffer();
+        const errLines = createLineBuffer();
         const proc = start();
         let settled = false;
-        const finish = (exitCode) => {
+
+        // Publish the complete lines from a chunk as one batch (one Kafka send, synchronous seq).
+        const publishChunk = async (lines) => {
+            if (lines.length === 0) return;
+            await logSink.publishLines(lines.map((line) => ({ log: `[${stepName}] ${line}`, step: stepName })));
+        };
+
+        const finish = async (exitCode) => {
             if (settled) return;
             settled = true;
+            // Flush any partial last line left in either stream.
+            const remainder = [outLines.flush(), errLines.flush()].filter((l) => l !== '');
+            if (remainder.length > 0) {
+                await logSink.publishLines(remainder.map((line) => ({ log: `[${stepName}] ${line}`, step: stepName })));
+            }
             if (echo) console.log(`${stepName} exited with code ${exitCode}`);
             resolve({ exitCode, tail: tail.toString() });
         };
+
         proc.stdout.on('data', async (data) => {
-            tail.push(data.toString());
-            if (echo) console.log(data.toString());
-            await logSink.publish({ log: `[${stepName}] ${data.toString()}`, step: stepName });
+            const text = data.toString();
+            tail.push(text);
+            if (echo) console.log(text);
+            await publishChunk(outLines.push(text));
         });
         proc.stderr.on('data', async (data) => {
-            tail.push(data.toString());
-            if (echo) console.error(data.toString());
-            await logSink.publish({ log: `[${stepName}] ${data.toString()}`, step: stepName });
+            const text = data.toString();
+            tail.push(text);
+            if (echo) console.error(text);
+            await publishChunk(errLines.push(text));
         });
         // A command that cannot be spawned at all reports through 'error' and may or may not emit 'close'.
         let spawnFailed = false;
         proc.on('error', async (err) => {
             spawnFailed = true;
             tail.push(`${err.message}\n`);
-            await logSink.publish({ log: `[${stepName}] ${err.message}`, step: stepName });
-            finish(1);
+            await logSink.publishLines([{ log: `[${stepName}] ${err.message}`, step: stepName }]);
+            await finish(1);
         });
         proc.on('close', (exitCode) => {
             if (!spawnFailed) finish(exitCode);

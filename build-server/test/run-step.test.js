@@ -15,7 +15,7 @@ describe('runStep', () => {
 
         assert.deepStrictEqual(await done, { ok: true, exitCode: 0, tail: 'added 3 packages\nnpm warn deprecated x\n' });
         assert.deepStrictEqual(sink.events[0], { log: '[install:start]', step: 'install', event: 'step_start' });
-        assert.deepStrictEqual(sink.logs().slice(1, 3), ['[install] added 3 packages\n', '[install] npm warn deprecated x\n']);
+        assert.deepStrictEqual(sink.logs().slice(1, 3), ['[install] added 3 packages', '[install] npm warn deprecated x']);
         assert.deepStrictEqual(sink.events.at(-1), { log: '[install:end] exit_code=0', step: 'install', event: 'step_end', exit_code: 0 });
     });
 
@@ -117,7 +117,7 @@ describe('startShell', () => {
         const result = await runCommand({
             start: () => startShell(`node -e "${script}"`, { cwd: __dirname }),
             stepName: 'build',
-            logSink: { publish: async () => { }, close: async () => { } },
+            logSink: { publish: async () => { }, publishLines: async () => { }, close: async () => { } },
             echo: false,
         });
         assert.strictEqual(result.exitCode, 0);
