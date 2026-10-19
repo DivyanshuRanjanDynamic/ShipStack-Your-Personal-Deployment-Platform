@@ -52,6 +52,10 @@ export function generateMarkdownReport(report: EvalRunReport): string {
   md += `| **Overall Category Accuracy** | **${pct(metrics.overallAccuracy)}** (${cases.filter(c => c.isCorrect).length}/${metrics.totalCases}) | Floor: 0% |\n`;
   md += `| **Root-Cause Score (0-2 avg)** | **${metrics.rootCauseScore.averageScore.toFixed(2)}** / 2.00 | Full: ${metrics.rootCauseScore.fullMatchCount}, Part: ${metrics.rootCauseScore.partialMatchCount}, None: ${metrics.rootCauseScore.noMatchCount} |\n`;
   md += `| **Evidence Validity Rate** | **${pct(metrics.evidenceValidity.validityRate)}** | ${metrics.evidenceValidity.validEvidenceCount}/${metrics.evidenceValidity.totalEvidenceCited} valid citations |\n`;
+  if (metrics.citations) {
+    md += `| **Grounded-Step Rate** | **${pct(metrics.citations.groundedStepRate)}** | ${metrics.citations.groundedStepsCount}/${metrics.citations.totalFixSteps} steps cited KB |\n`;
+    md += `| **Citation Validity Rate** | **${pct(metrics.citations.citationValidityRate)}** | ${metrics.citations.validCitations}/${metrics.citations.totalCitations} citations valid |\n`;
+  }
   md += `| **JSON Validity Rate** | **${pct(metrics.jsonValidityRate)}** | Target: 100% |\n`;
   md += `| **Retry Rate** | ${pct(metrics.retryRate)} | Target: < 5% |\n`;
   md += `| **Fallback Rate** | ${pct(metrics.fallbackRate)} | Target: < 5% |\n`;

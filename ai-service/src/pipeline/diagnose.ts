@@ -4,9 +4,10 @@ import { GroqClient } from "../llm/groq-client.js";
 import type { LlmClient } from "../llm/client.js";
 import { buildSystemPrompt, buildUserPrompt, PROMPT_VERSION } from "./prompt.js";
 import { validateLlmOutput, type ValidationResult } from "./validate-output.js";
+import { retrieveContext } from "./retrieve.js";
 import type { PipelineDiagnosisResult, RetrieveResult, RulesResult } from "./types.js";
 
-export const PIPELINE_VERSION = "2.0.0";
+export const PIPELINE_VERSION = "3.0.0";
 
 export interface DiagnoseOptions {
   client?: LlmClient;
@@ -30,7 +31,9 @@ export async function diagnose(
 ): Promise<PipelineDiagnosisResult> {
   const overallStart = Date.now();
 
-  const rulesResult = "rules" in input ? input.rules : input;
+  const retrieveResult: RetrieveResult =
+    "retrievedDocs" in input ? input : await retrieveContext(input);
+  const rulesResult = retrieveResult.rules;
   const signature = rulesResult.signature;
   const preprocessed = signature.preprocess;
   const lines = preprocessed.lines;
@@ -41,6 +44,10 @@ export async function diagnose(
   const primaryModel = options.model || config.LLM_MODEL_PRIMARY;
 
   const systemPrompt = buildSystemPrompt();
+  const retrievedChunks = retrieveResult.retrievedDocs || [];
+  const retrievedChunkIds = new Set(retrievedChunks.map((c) => c.id));
+  const chunkMap = new Map(retrievedChunks.map((c) => [c.id, c]));
+
   const userPrompt = buildUserPrompt({
     failedStep: request.failed_step,
     exitCode: request.exit_code,
@@ -48,6 +55,7 @@ export async function diagnose(
     gitUrl: request.git_url,
     buildContext: preprocessed.buildContext,
     ruleHints: rulesResult.matches,
+    chunks: retrievedChunks,
     lines,
   });
 
@@ -84,6 +92,7 @@ export async function diagnose(
       lines,
       contextMissing: preprocessed.contextMissing,
       truncated: preprocessed.truncated,
+      retrievedChunkIds,
     });
 
     // 2. Retry if invalid
@@ -119,6 +128,7 @@ export async function diagnose(
         lines,
         contextMissing: preprocessed.contextMissing,
         truncated: preprocessed.truncated,
+        retrievedChunkIds,
       });
     }
 
@@ -154,6 +164,7 @@ export async function diagnose(
             lines,
             contextMissing: preprocessed.contextMissing,
             truncated: preprocessed.truncated,
+            retrievedChunkIds,
           });
 
           if (escValidation.isValid && escValidation.data.confidence > finalData.confidence) {
@@ -167,6 +178,15 @@ export async function diagnose(
 
       const totalLatencyMs = Date.now() - overallStart;
 
+      const sourcesDetailed = (finalData.sources || []).map((id) => {
+        const c = chunkMap.get(id);
+        return {
+          id,
+          title: c?.title || id,
+          url: c?.sourceUrl || null,
+        };
+      });
+
       return {
         category: finalData.category,
         confidence: finalData.confidence,
@@ -175,6 +195,8 @@ export async function diagnose(
           fix_steps: finalData.fix_steps,
           evidence: finalData.evidence,
           sources: finalData.sources || [],
+          sources_detailed: sourcesDetailed,
+          retrieved_chunk_ids: Array.from(retrievedChunkIds),
           needs_human: finalData.needs_human,
         },
         source: "LLM",

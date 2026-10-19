@@ -6,6 +6,7 @@ export interface SemanticValidationOptions {
   lines: PreprocessedLine[];
   contextMissing?: boolean;
   truncated?: boolean;
+  retrievedChunkIds?: Set<string>;
 }
 
 export interface ValidationSuccess {
@@ -27,6 +28,7 @@ export type ValidationResult = ValidationSuccess | ValidationFailure;
  * 3. Every cited evidence text must match the text of that line.
  * 4. fix_steps must be non-empty unless category is UNKNOWN.
  * 5. Confidence is capped when contextMissing or truncated.
+ * 6. Every cited source_chunk_id must have been in the retrieved chunk set.
  */
 export function validateLlmOutput(
   rawJson: unknown,
@@ -85,11 +87,31 @@ export function validateLlmOutput(
     }
   }
 
+  // 5. Phase 3 Citation Verification against retrieved chunks
+  if (options.retrievedChunkIds) {
+    for (let i = 0; i < (output.fix_steps || []).length; i++) {
+      const step = output.fix_steps[i];
+      if (step.source_chunk_id && !options.retrievedChunkIds.has(step.source_chunk_id)) {
+        errors.push(
+          `fix_steps[${i}] cites unknown chunk id "${step.source_chunk_id}". Only retrieved chunk IDs may be cited.`
+        );
+      }
+    }
+
+    for (const src of output.sources || []) {
+      if (!options.retrievedChunkIds.has(src)) {
+        errors.push(
+          `sources contains unretrieved chunk id "${src}". Only retrieved chunk IDs may be cited.`
+        );
+      }
+    }
+  }
+
   if (errors.length > 0) {
     return { isValid: false, errors };
   }
 
-  // 5. Semantic adjustments: confidence capping & UNKNOWN needs_human
+  // 6. Semantic adjustments: confidence capping & UNKNOWN needs_human
   let confidence = output.confidence;
   if (options.contextMissing) {
     confidence = Math.min(confidence, 0.7);
@@ -103,8 +125,19 @@ export function validateLlmOutput(
     needsHuman = true;
   }
 
+  // Deduplicate sources list from cited steps
+  const citedIds = Array.from(
+    new Set([
+      ...(output.sources || []),
+      ...output.fix_steps
+        .map((s) => s.source_chunk_id)
+        .filter((id): id is string => typeof id === "string" && id.length > 0),
+    ])
+  );
+
   const validatedData: LlmOutput = {
     ...output,
+    sources: citedIds,
     confidence: Math.round(confidence * 100) / 100,
     needs_human: needsHuman,
   };

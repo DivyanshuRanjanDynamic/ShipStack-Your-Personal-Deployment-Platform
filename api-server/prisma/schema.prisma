@@ -67,3 +67,41 @@ model Diagnosis {
 
   @@index([signatureHash])
 }
+
+model KbDocument {
+  id          String    @id @default(uuid())
+  path        String    @unique
+  title       String
+  source      String    // PLAYBOOK | EXTERNAL
+  sourceUrl   String?   @map("source_url")
+  license     String?
+  contentHash String    @map("content_hash")
+  kbVersion   String    @map("kb_version")
+  active      Boolean   @default(true)
+  createdAt   DateTime  @default(now()) @map("created_at")
+  updatedAt   DateTime  @updatedAt @map("updated_at")
+  chunks      KbChunk[]
+}
+
+model KbChunk {
+  id              String                    @id
+  documentId      String                    @map("document_id")
+  document        KbDocument                @relation(fields: [documentId], references: [id], onDelete: Cascade)
+  category        String?
+  framework       String[]                  @default([])
+  packageManager  String[]                  @default([]) @map("package_manager")
+  errorSignatures String[]                  @default([]) @map("error_signatures")
+  embedText       String                    @map("embed_text") @db.Text
+  content         String                    @db.Text
+  embedding       Unsupported("vector(384)")?
+  tsv             Unsupported("tsvector")?
+  embeddingModel  String?                   @map("embedding_model")
+  embeddingDim    Int?                      @map("embedding_dim")
+  contentHash     String                    @map("content_hash")
+  active          Boolean                   @default(true)
+  createdAt       DateTime                  @default(now()) @map("created_at")
+  updatedAt       DateTime                  @updatedAt @map("updated_at")
+
+  @@index([category])
+  @@index([active])
+}

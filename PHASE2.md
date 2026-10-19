@@ -214,7 +214,7 @@ Validated at startup (fail fast with a clear message):
 - A real failed deployment shows a real diagnosis in the UI
 - Daily cap and timeout behavior verified
 - Existing Phase 0 and Phase 1 behavior unchanged; all earlier tests pass
-- Failures of the baseline are listed by category (this list decides what Phase 3 retrieval must fix)
+- Failures of the baseline are listed by category (the failure list is produced from the dev split only and guides knowledge authoring; test-split failures are reported but never used to write knowledge or tune retrieval)
 
 ## 14. Working agreement for contributors (human or AI)
 

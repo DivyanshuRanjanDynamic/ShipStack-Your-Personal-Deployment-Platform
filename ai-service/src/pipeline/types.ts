@@ -116,12 +116,31 @@ export interface RulesResult {
   signature: SignatureResult;
 }
 
+/** A single retrieved chunk from hybrid search */
+export interface RetrievedChunk {
+  id: string;
+  documentId: string;
+  category: string | null;
+  title: string;
+  sourceUrl: string | null;
+  embedText: string;
+  content: string;
+  framework: string[];
+  packageManager: string[];
+  errorSignatures: string[];
+  score: number;
+  vectorRank?: number;
+  keywordRank?: number;
+}
+
 /** Output of retrieveContext (Step 5). */
 export interface RetrieveResult {
-  /** Documents retrieved via hybrid RAG (empty list in Phase 1/2 stub). */
-  retrievedDocs: string[];
+  /** Documents retrieved via hybrid RAG. */
+  retrievedDocs: RetrievedChunk[];
   /** Forwarded rules result. */
   rules: RulesResult;
+  /** Duration of retrieval in ms. */
+  durationMs?: number;
 }
 
 /** Diagnosis source values. */
@@ -133,9 +152,15 @@ export interface PipelineDiagnosisResult {
   confidence: number;
   rootCause: string;
   fixJson: {
-    fix_steps: Array<{ step: string; type: "config" | "code" | "env" | "none" }>;
+    fix_steps: Array<{
+      step: string;
+      type: "config" | "code" | "env" | "none";
+      source_chunk_id?: string | null;
+    }>;
     evidence: Array<{ line: number; text: string }>;
     sources: string[];
+    sources_detailed?: Array<{ id: string; title: string; url: string | null }>;
+    retrieved_chunk_ids?: string[];
     needs_human: boolean;
   };
   source: DiagnosisSource;

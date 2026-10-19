@@ -1,0 +1,152 @@
+{
+  "timestamp": "2026-10-17T08:48:45.233Z",
+  "mode": "rules",
+  "split": "dev",
+  "model": "none",
+  "promptVersion": "3.0.0",
+  "pipelineVersion": "3.0.0",
+  "metrics": {
+    "totalCases": 4,
+    "overallAccuracy": 1,
+    "categoryAccuracy": {
+      "DEPENDENCY_CONFLICT": {
+        "total": 2,
+        "correct": 2,
+        "accuracy": 1
+      },
+      "MODULE_NOT_FOUND": {
+        "total": 2,
+        "correct": 2,
+        "accuracy": 1
+      }
+    },
+    "difficultyAccuracy": {
+      "easy": {
+        "total": 3,
+        "correct": 3,
+        "accuracy": 1
+      },
+      "medium": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      }
+    },
+    "confusionMatrix": {
+      "DEPENDENCY_CONFLICT": {
+        "DEPENDENCY_CONFLICT": 2
+      },
+      "MODULE_NOT_FOUND": {
+        "MODULE_NOT_FOUND": 2
+      }
+    },
+    "rootCauseScore": {
+      "averageScore": 2,
+      "fullMatchCount": 4,
+      "partialMatchCount": 0,
+      "noMatchCount": 0,
+      "scores": {
+        "DEPENDENCY_CONFLICT-01": 2,
+        "DEPENDENCY_CONFLICT-02": 2,
+        "MODULE_NOT_FOUND-01": 2,
+        "MODULE_NOT_FOUND-02": 2
+      }
+    },
+    "evidenceValidity": {
+      "totalEvidenceCited": 22,
+      "validEvidenceCount": 22,
+      "validityRate": 1
+    },
+    "citations": {
+      "totalFixSteps": 4,
+      "groundedStepsCount": 0,
+      "groundedStepRate": 0,
+      "totalCitations": 0,
+      "validCitations": 0,
+      "citationValidityRate": 1
+    },
+    "jsonValidityRate": 1,
+    "retryRate": 0,
+    "fallbackRate": 0,
+    "escalationRate": 0,
+    "latency": {
+      "meanMs": 10,
+      "p50Ms": 4,
+      "p95Ms": 27,
+      "minMs": 3,
+      "maxMs": 31
+    },
+    "tokens": {
+      "totalIn": 0,
+      "totalOut": 0,
+      "meanIn": 0,
+      "meanOut": 0
+    },
+    "cost": {
+      "totalUsd": 0,
+      "meanUsd": 0
+    }
+  },
+  "cases": [
+    {
+      "caseId": "DEPENDENCY_CONFLICT-01",
+      "expectedCategory": "DEPENDENCY_CONFLICT",
+      "predictedCategory": "DEPENDENCY_CONFLICT",
+      "isCorrect": true,
+      "confidence": 0.95,
+      "source": "RULES",
+      "needsHuman": false,
+      "rootCauseScore": 2,
+      "evidenceCited": 8,
+      "latencyMs": 31,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    },
+    {
+      "caseId": "DEPENDENCY_CONFLICT-02",
+      "expectedCategory": "DEPENDENCY_CONFLICT",
+      "predictedCategory": "DEPENDENCY_CONFLICT",
+      "isCorrect": true,
+      "confidence": 0.95,
+      "source": "RULES",
+      "needsHuman": false,
+      "rootCauseScore": 2,
+      "evidenceCited": 8,
+      "latencyMs": 4,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    },
+    {
+      "caseId": "MODULE_NOT_FOUND-01",
+      "expectedCategory": "MODULE_NOT_FOUND",
+      "predictedCategory": "MODULE_NOT_FOUND",
+      "isCorrect": true,
+      "confidence": 0.95,
+      "source": "RULES",
+      "needsHuman": false,
+      "rootCauseScore": 2,
+      "evidenceCited": 3,
+      "latencyMs": 3,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    },
+    {
+      "caseId": "MODULE_NOT_FOUND-02",
+      "expectedCategory": "MODULE_NOT_FOUND",
+      "predictedCategory": "MODULE_NOT_FOUND",
+      "isCorrect": true,
+      "confidence": 0.98,
+      "source": "RULES",
+      "needsHuman": false,
+      "rootCauseScore": 2,
+      "evidenceCited": 3,
+      "latencyMs": 3,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    }
+  ]
+}

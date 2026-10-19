@@ -1577,7 +1577,8 @@
 
 .diag-root-cause-card,
 .diag-evidence-card,
-.diag-fix-card {
+.diag-fix-card,
+.diag-sources-card {
   background: #080808;
   border: 1px solid #151515;
   border-radius: 10px;
@@ -1586,7 +1587,8 @@
 
 .diag-root-cause-card h4,
 .diag-evidence-card h4,
-.diag-fix-card h4 {
+.diag-fix-card h4,
+.diag-sources-card h4 {
   display: flex;
   align-items: center;
   gap: 8px;
@@ -1667,6 +1669,78 @@
   border: 1px solid rgba(0, 223, 216, 0.15);
   text-transform: uppercase;
   letter-spacing: 0.5px;
+}
+
+.fix-source-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  font-size: 9px;
+  padding: 2px 6px;
+  border-radius: 4px;
+  background: rgba(56, 189, 248, 0.1);
+  color: #38bdf8;
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  letter-spacing: 0.3px;
+}
+
+.sources-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+
+.source-item {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 8px 10px;
+  border-radius: 6px;
+  background: rgba(255, 255, 255, 0.02);
+  border: 1px solid #141414;
+}
+
+.source-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+
+.source-title {
+  font-size: 12px;
+  font-weight: 500;
+  color: #e2e8f0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.source-meta {
+  font-size: 10px;
+  color: #64748b;
+}
+
+.source-link {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  padding: 3px 8px;
+  border-radius: 4px;
+  font-size: 11px;
+  color: #38bdf8;
+  background: rgba(56, 189, 248, 0.08);
+  border: 1px solid rgba(56, 189, 248, 0.2);
+  text-decoration: none;
+  transition: all 0.2s ease;
+  flex-shrink: 0;
+}
+
+.source-link:hover {
+  background: rgba(56, 189, 248, 0.16);
+  border-color: rgba(56, 189, 248, 0.4);
+  color: #7dd3fc;
 }
 
 .diag-actions-bar {

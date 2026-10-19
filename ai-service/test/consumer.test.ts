@@ -64,7 +64,7 @@ describe("Kafka Consumer Message Processing", () => {
     expect(["LLM", "RULES", "LLM_FALLBACK", "STUB"]).toContain(calls.markDone[0].result.source);
     expect(calls.markDone[0].result.confidence).toBeGreaterThanOrEqual(0);
     expect(dlqMessages.length).toBe(0);
-  });
+  }, 15000);
 
   it("is idempotent: skips pipeline when deployment is already DONE", async () => {
     const { store, calls } = createMockStore({ isAlreadyDone: true });

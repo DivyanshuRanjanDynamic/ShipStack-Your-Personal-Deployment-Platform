@@ -1,0 +1,68 @@
+{
+  "timestamp": "2026-10-17T09:48:35.674Z",
+  "split": "test",
+  "totalCases": 2,
+  "evaluatedCases": 2,
+  "recallAt3": 1,
+  "recallAt5": 1,
+  "meanReciprocalRank": 1,
+  "emptyRate": 0,
+  "meanDurationMs": 645.5,
+  "perCategory": {
+    "DEPENDENCY_CONFLICT": {
+      "count": 1,
+      "recallAt3": 1,
+      "recallAt5": 1,
+      "mrr": 1
+    },
+    "MODULE_NOT_FOUND": {
+      "count": 1,
+      "recallAt3": 1,
+      "recallAt5": 1,
+      "mrr": 1
+    }
+  },
+  "cases": [
+    {
+      "caseId": "DEPENDENCY_CONFLICT-03",
+      "category": "DEPENDENCY_CONFLICT",
+      "relevantKbIds": [
+        "npm-eresolve-peer-deps",
+        "shipstack-npm-peer-deps"
+      ],
+      "retrievedIds": [
+        "npm-eresolve-peer-deps",
+        "shipstack-npm-peer-deps",
+        "vite-rollup-module-resolution",
+        "shipstack-missing-package-dependency",
+        "shipstack-configure-node-version"
+      ],
+      "hitAt3": true,
+      "hitAt5": true,
+      "reciprocalRank": 1,
+      "isEmpty": false,
+      "durationMs": 1000,
+      "topScore": 0.03278688524590164
+    },
+    {
+      "caseId": "MODULE_NOT_FOUND-03",
+      "category": "MODULE_NOT_FOUND",
+      "relevantKbIds": [
+        "shipstack-linux-case-sensitivity"
+      ],
+      "retrievedIds": [
+        "shipstack-linux-case-sensitivity",
+        "shipstack-missing-package-dependency",
+        "shipstack-missing-build-script",
+        "npm-eresolve-peer-deps",
+        "shipstack-output-directory-mismatch"
+      ],
+      "hitAt3": true,
+      "hitAt5": true,
+      "reciprocalRank": 1,
+      "isEmpty": false,
+      "durationMs": 291,
+      "topScore": 0.03225806451612903
+    }
+  ]
+}

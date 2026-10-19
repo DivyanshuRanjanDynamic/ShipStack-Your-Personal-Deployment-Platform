@@ -1,4 +1,9 @@
-import "dotenv/config";
+import path from "path";
+import dotenv from "dotenv";
+
+// Load from ai-service/.env relative to this file
+dotenv.config({ path: path.resolve(import.meta.dirname, "../.env") });
+dotenv.config();
 import { z } from "zod";
 
 /**
@@ -43,6 +48,18 @@ const ConfigSchema = z.object({
   LLM_TIMEOUT_MS: z.coerce.number().int().positive().default(30000),
   MAX_INPUT_TOKENS: z.coerce.number().int().positive().default(6000),
   LOG_FETCH_LIMIT: z.coerce.number().int().positive().default(5000),
+
+  // ── Phase 3: RAG & Embeddings ──
+  RAG_ENABLED: z.coerce.boolean().default(true),
+  EMBEDDING_PROVIDER: z.enum(["local", "mock", "openai"]).default("local"),
+  EMBEDDING_MODEL: z.string().default("Xenova/all-MiniLM-L6-v2"),
+  EMBEDDING_DIM: z.coerce.number().int().positive().default(384),
+  EMBEDDING_API_KEY: z.string().optional(),
+  RAG_TOP_K: z.coerce.number().int().positive().default(5),
+  RAG_CANDIDATES: z.coerce.number().int().positive().default(20),
+  RRF_K: z.coerce.number().int().positive().default(60),
+  RAG_MIN_SCORE: z.coerce.number().default(0.015),
+  KB_PATH: z.string().default("knowledge"),
 });
 
 export type Config = z.infer<typeof ConfigSchema>;
@@ -90,12 +107,22 @@ export const config: Config = process.env.NODE_ENV === "test"
     DIAGNOSIS_MODE: "hybrid" as const,
     LLM_PROVIDER: "groq",
     LLM_API_KEY: process.env.LLM_API_KEY,
-    LLM_MODEL_PRIMARY: process.env.LLM_MODEL_PRIMARY || "openai/gpt-oss-120b", // M4 audit fix: aligned with production default
+    LLM_MODEL_PRIMARY: process.env.LLM_MODEL_PRIMARY || "openai/gpt-oss-120b",
     LLM_MODEL_ESCALATION: process.env.LLM_MODEL_ESCALATION,
     ESCALATION_CONFIDENCE_THRESHOLD: 0.6,
     RULES_CONFIDENCE_THRESHOLD: 0.9,
     LLM_TIMEOUT_MS: 30000,
     MAX_INPUT_TOKENS: 6000,
     LOG_FETCH_LIMIT: 5000,
+    RAG_ENABLED: true,
+    EMBEDDING_PROVIDER: "local",
+    EMBEDDING_MODEL: "Xenova/all-MiniLM-L6-v2",
+    EMBEDDING_DIM: 384,
+    EMBEDDING_API_KEY: process.env.EMBEDDING_API_KEY,
+    RAG_TOP_K: 5,
+    RAG_CANDIDATES: 20,
+    RRF_K: 60,
+    RAG_MIN_SCORE: 0.015,
+    KB_PATH: "knowledge",
   } as Config
   : loadConfig();

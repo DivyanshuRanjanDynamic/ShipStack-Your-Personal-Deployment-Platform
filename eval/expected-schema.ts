@@ -9,7 +9,8 @@ export const ExpectedCase = z.object({
   fix_must_mention: z.array(z.string()).min(1),
   difficulty: z.enum(["easy", "medium", "hard"]),
   framework: z.enum(["vite", "cra", "next", "unknown"]),
-  package_manager: z.enum(["npm", "yarn", "pnpm"])
+  package_manager: z.enum(["npm", "yarn", "pnpm"]),
+  relevant_kb_ids: z.array(z.string()).default([]),
 });
 
 export type ExpectedCase = z.infer<typeof ExpectedCase>;

@@ -1,12 +1,12 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useParams, Link, useNavigate } from 'react-router-dom';
 import ConsoleLayout from '../components/ConsoleLayout';
-import { 
-  CheckCircle2, 
-  AlertTriangle, 
-  Clock, 
-  Loader2, 
-  GitBranch, 
+import {
+  CheckCircle2,
+  AlertTriangle,
+  Clock,
+  Loader2,
+  GitBranch,
   ExternalLink,
   Copy,
   Check,
@@ -16,14 +16,15 @@ import {
   RefreshCw,
   Globe,
   Cpu,
-  Activity
+  Activity,
+  BookOpen
 } from 'lucide-react';
 import { getDeployment, getDeploymentLogs, getDiagnosis, pollDeploymentStatus } from '../services/api';
 
 export default function DeploymentDetailPage() {
   const { id } = useParams();
   const navigate = useNavigate();
-  
+
   const [deployment, setDeployment] = useState(null);
   const [logs, setLogs] = useState([]);
   const [diagnosis, setDiagnosis] = useState(null);
@@ -105,7 +106,7 @@ export default function DeploymentDetailPage() {
       try {
         const logResult = await getDeploymentLogs(deploymentId);
         setLogs(logResult?.data?.logs || []);
-      } catch {}
+      } catch { }
     }, 3000);
 
     try {
@@ -114,7 +115,7 @@ export default function DeploymentDetailPage() {
         (dep) => setDeployment(dep),
         { signal: abort.signal }
       );
-    } catch {}
+    } catch { }
 
     clearInterval(logInterval);
     setIsPolling(false);
@@ -130,7 +131,7 @@ export default function DeploymentDetailPage() {
         const diagResult = await getDiagnosis(deploymentId);
         setDiagnosis(diagResult);
       }
-    } catch {}
+    } catch { }
   };
 
   const handleCopyId = () => {
@@ -195,7 +196,7 @@ export default function DeploymentDetailPage() {
   return (
     <ConsoleLayout title={`Deployment ${deployment?.id?.substring(0, 8) || ''}`}>
       <div className="deployment-detail-page">
-        
+
         {/* Header */}
         <div className="detail-header">
           <div>
@@ -222,8 +223,8 @@ export default function DeploymentDetailPage() {
               <span>Refresh</span>
             </button>
             {deployment?.status === 'FAILURE' && (
-              <Link 
-                to={`/diagnosis/${id}`} 
+              <Link
+                to={`/diagnosis/${id}`}
                 className="btn-primary"
                 style={{ padding: '6px 14px', fontSize: '12px', background: 'linear-gradient(135deg, #9333ea, #0070f3)', border: 'none', color: '#fff' }}
               >
@@ -236,16 +237,16 @@ export default function DeploymentDetailPage() {
 
         {/* Tabs */}
         <div className="detail-tabs">
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`detail-tab ${activeTab === 'overview' ? 'active' : ''}`}
             onClick={() => setActiveTab('overview')}
           >
             <Activity size={14} />
             Overview
           </button>
-          <button 
-            type="button" 
+          <button
+            type="button"
             className={`detail-tab ${activeTab === 'logs' ? 'active' : ''}`}
             onClick={() => setActiveTab('logs')}
           >
@@ -253,8 +254,8 @@ export default function DeploymentDetailPage() {
             Build Logs ({logs.length})
           </button>
           {deployment?.status === 'FAILURE' && (
-            <button 
-              type="button" 
+            <button
+              type="button"
               className={`detail-tab ${activeTab === 'diagnosis' ? 'active' : ''}`}
               onClick={() => setActiveTab('diagnosis')}
             >
@@ -336,15 +337,14 @@ export default function DeploymentDetailPage() {
                     <span className="log-time">
                       {l.timestamp ? new Date(l.timestamp).toLocaleTimeString('en-US', { hour12: false }) : `[${i}]`}
                     </span>
-                    <span className={`log-text ${
-                      l.log?.includes('error') || l.log?.includes('fatal') || l.log?.includes('FAIL')
-                        ? 'log-error' 
-                        : l.log?.includes('warn') 
-                          ? 'log-warn' 
-                          : l.log?.includes(':start]') || l.log?.includes(':end]')
-                            ? 'log-step'
-                            : ''
-                    }`}>
+                    <span className={`log-text ${l.log?.includes('error') || l.log?.includes('fatal') || l.log?.includes('FAIL')
+                      ? 'log-error'
+                      : l.log?.includes('warn')
+                        ? 'log-warn'
+                        : l.log?.includes(':start]') || l.log?.includes(':end]')
+                          ? 'log-step'
+                          : ''
+                      }`}>
                       {l.log}
                     </span>
                   </div>
@@ -414,9 +414,53 @@ export default function DeploymentDetailPage() {
                           <div key={i} className="fix-step-row">
                             <span className="fix-step-num">{i + 1}</span>
                             <span className="fix-step-text">{step.step}</span>
-                            <span className="fix-step-type mono">{step.type}</span>
+                            <div className="flex-center gap-1">
+                              {step.source_chunk_id && (
+                                <span
+                                  className="fix-source-badge mono"
+                                  title={`Grounded in knowledge chunk: ${step.source_chunk_id}`}
+                                >
+                                  <BookOpen size={9} />
+                                  Grounded
+                                </span>
+                              )}
+                              <span className="fix-step-type mono">{step.type}</span>
+                            </div>
                           </div>
                         ))}
+                      </div>
+                    )}
+
+                    {diagnosis.diagnosis.sources?.length > 0 && (
+                      <div className="diag-sources-card" style={{ marginTop: '16px' }}>
+                        <h4>
+                          <BookOpen size={14} color="#38bdf8" />
+                          Grounded Knowledge Sources ({diagnosis.diagnosis.sources.length})
+                        </h4>
+                        <div className="sources-list" style={{ marginTop: '10px' }}>
+                          {diagnosis.diagnosis.sources.map((src, i) => (
+                            <div key={src.id || i} className="source-item">
+                              <div className="source-info">
+                                <span className="source-title">{src.title || src.id}</span>
+                                <span className="source-meta mono">
+                                  {src.id}
+                                </span>
+                              </div>
+                              {src.url?.startsWith('https://') && (
+                                <a
+                                  href={src.url}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  className="source-link"
+                                  title={`Open ${src.title || 'documentation'}`}
+                                >
+                                  <ExternalLink size={11} />
+                                  <span>Docs</span>
+                                </a>
+                              )}
+                            </div>
+                          ))}
+                        </div>
                       </div>
                     )}
                   </div>

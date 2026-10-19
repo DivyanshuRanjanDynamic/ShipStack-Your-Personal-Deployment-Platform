@@ -44,6 +44,12 @@
  * @typedef {Object} FixStep
  * @property {string} step - Description of the remediation step
  * @property {'config' | 'code' | 'env' | 'none'} type - Category of fix
+ * @property {string|null} [source_chunk_id] - Knowledge base citation chunk ID if grounded
+ * 
+ * @typedef {Object} SourceItem
+ * @property {string} id - Knowledge base chunk ID
+ * @property {string} title - Title or document name
+ * @property {string|null} [url] - Documentation URL
  * 
  * @typedef {Object} LogEvidence
  * @property {number} line - Log line number
@@ -55,7 +61,9 @@
  * @property {string} [root_cause] - Human-readable cause of failure
  * @property {FixStep[]} [fix_steps] - Remediation actions
  * @property {LogEvidence[]} [evidence] - Pinpointed log lines
- * @property {'STUB' | 'RULES' | 'LLM' | 'CACHE'} [source] - Engine source
+ * @property {'STUB' | 'RULES' | 'LLM' | 'LLM_FALLBACK' | 'CACHE'} [source] - Engine source
+ * @property {boolean} [needs_human] - Whether human review is advised
+ * @property {SourceItem[]} [sources] - Grounded knowledge base citations
  * 
  * @typedef {Object} DiagnosisResponse
  * @property {'NOT_APPLICABLE' | 'PENDING' | 'DONE' | 'FAILED'} status - Pipeline progress status

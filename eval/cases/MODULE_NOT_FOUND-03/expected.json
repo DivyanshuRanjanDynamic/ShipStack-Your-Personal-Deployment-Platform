@@ -6,5 +6,6 @@
   "fix_must_mention": ["import", "path"],
   "difficulty": "hard",
   "framework": "cra",
-  "package_manager": "npm"
+  "package_manager": "npm",
+  "relevant_kb_ids": ["shipstack-linux-case-sensitivity"]
 }

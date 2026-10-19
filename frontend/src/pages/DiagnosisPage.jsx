@@ -479,9 +479,54 @@ export default function DiagnosisPage() {
                         <div key={i} className="fix-step-item">
                           <span className="fix-num">{i + 1}</span>
                           <span className="fix-text">{step.step}</span>
-                          <span className="fix-type-badge mono">{step.type}</span>
+                          <div className="flex-center gap-1">
+                            {step.source_chunk_id && (
+                              <span
+                                className="fix-source-badge mono"
+                                title={`Grounded in knowledge chunk: ${step.source_chunk_id}`}
+                              >
+                                <BookOpen size={9} />
+                                Grounded
+                              </span>
+                            )}
+                            <span className="fix-type-badge mono">{step.type}</span>
+                          </div>
                         </div>
                       ))}
+                    </div>
+                  )}
+
+                  {/* Knowledge Base Sources */}
+                  {diagnosis.diagnosis.sources?.length > 0 && (
+                    <div className="diag-sources-card">
+                      <h4>
+                        <BookOpen size={14} color="#38bdf8" />
+                        Grounded Knowledge Sources ({diagnosis.diagnosis.sources.length})
+                      </h4>
+                      <div className="sources-list">
+                        {diagnosis.diagnosis.sources.map((src, i) => (
+                          <div key={src.id || i} className="source-item">
+                            <div className="source-info">
+                              <span className="source-title">{src.title || src.id}</span>
+                              <span className="source-meta mono">
+                                {src.source || 'playbook'} &middot; {src.id}
+                              </span>
+                            </div>
+                            {src.url?.startsWith('https://') && (
+                              <a
+                                href={src.url}
+                                target="_blank"
+                                rel="noopener noreferrer"
+                                className="source-link"
+                                title={`Open ${src.title || 'documentation'}`}
+                              >
+                                <ExternalLink size={11} />
+                                <span>Docs</span>
+                              </a>
+                            )}
+                          </div>
+                        ))}
+                      </div>
                     </div>
                   )}
                 </div>

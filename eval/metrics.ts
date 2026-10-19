@@ -8,8 +8,10 @@ export interface CaseEvalResult {
     category: string;
     confidence: number;
     root_cause: string;
-    fix_steps: Array<{ step: string; type?: string }>;
+    fix_steps: Array<{ step: string; type?: string; source_chunk_id?: string | null }>;
     evidence: Array<{ line: number; text: string }>;
+    sources?: string[];
+    retrievedChunkIds?: string[];
     source: string;
     needs_human?: boolean;
     rawOutput?: unknown;
@@ -45,6 +47,15 @@ export interface MetricSummary {
     totalEvidenceCited: number;
     validEvidenceCount: number;
     validityRate: number; // 0 to 1
+  };
+
+  citations: {
+    totalFixSteps: number;
+    groundedStepsCount: number;
+    groundedStepRate: number; // 0 to 1
+    totalCitations: number;
+    validCitations: number;
+    citationValidityRate: number; // 0 to 1
   };
 
   jsonValidityRate: number; // 0 to 1
@@ -174,6 +185,14 @@ export function computeMetrics(results: CaseEvalResult[]): MetricSummary {
       confusionMatrix: {},
       rootCauseScore: { averageScore: 0, fullMatchCount: 0, partialMatchCount: 0, noMatchCount: 0, scores: {} },
       evidenceValidity: { totalEvidenceCited: 0, validEvidenceCount: 0, validityRate: 0 },
+      citations: {
+        totalFixSteps: 0,
+        groundedStepsCount: 0,
+        groundedStepRate: 0,
+        totalCitations: 0,
+        validCitations: 0,
+        citationValidityRate: 1.0,
+      },
       jsonValidityRate: 0,
       retryRate: 0,
       fallbackRate: 0,
@@ -197,6 +216,11 @@ export function computeMetrics(results: CaseEvalResult[]): MetricSummary {
 
   let totalEvidenceCited = 0;
   let validEvidenceCount = 0;
+
+  let totalFixStepsCount = 0;
+  let groundedStepsCount = 0;
+  let totalCitationsCount = 0;
+  let validCitationsCount = 0;
 
   let validJsonCount = 0;
   let retryCount = 0;
@@ -241,6 +265,25 @@ export function computeMetrics(results: CaseEvalResult[]): MetricSummary {
     const ev = validateEvidence(r.predicted.evidence, r.rawLogs);
     totalEvidenceCited += ev.total;
     validEvidenceCount += ev.valid;
+
+    // Citations & grounding (Phase 3)
+    const retrievedSet = new Set(r.predicted.retrievedChunkIds || []);
+    const steps = (r.predicted.fix_steps as any[]) || [];
+    for (const st of steps) {
+      totalFixStepsCount++;
+      if (st.source_chunk_id) {
+        groundedStepsCount++;
+        totalCitationsCount++;
+        // Citations are only valid if they match a chunk in the retrieved set
+        if (
+          typeof st.source_chunk_id === "string" &&
+          st.source_chunk_id.trim().length > 0 &&
+          retrievedSet.has(st.source_chunk_id.trim())
+        ) {
+          validCitationsCount++;
+        }
+      }
+    }
 
     // Reliability & routing rates
     if (r.predicted.isValidJson) validJsonCount++;
@@ -291,6 +334,20 @@ export function computeMetrics(results: CaseEvalResult[]): MetricSummary {
         totalEvidenceCited > 0
           ? Math.round((validEvidenceCount / totalEvidenceCited) * 1000) / 1000
           : 0,
+    },
+    citations: {
+      totalFixSteps: totalFixStepsCount,
+      groundedStepsCount,
+      groundedStepRate:
+        totalFixStepsCount > 0
+          ? Math.round((groundedStepsCount / totalFixStepsCount) * 1000) / 1000
+          : 0,
+      totalCitations: totalCitationsCount,
+      validCitations: validCitationsCount,
+      citationValidityRate:
+        totalCitationsCount > 0
+          ? Math.round((validCitationsCount / totalCitationsCount) * 1000) / 1000
+          : 1.0,
     },
     jsonValidityRate: Math.round((validJsonCount / total) * 1000) / 1000,
     retryRate: Math.round((retryCount / total) * 1000) / 1000,

@@ -4,6 +4,13 @@ const { z } = require('zod');
 const FixStepSchema = z.object({
     step: z.string().min(1),
     type: z.enum(['config', 'code', 'env', 'none']),
+    source_chunk_id: z.string().nullable().optional(),
+});
+
+const SourceItemSchema = z.object({
+    id: z.string(),
+    title: z.string(),
+    url: z.string().nullable().optional(),
 });
 
 const EvidenceSchema = z.object({
@@ -17,6 +24,7 @@ const DiagnosisPayloadSchema = z.object({
     root_cause: z.string().min(1),
     fix_steps: z.array(FixStepSchema),
     evidence: z.array(EvidenceSchema),
+    sources: z.array(SourceItemSchema).optional(),
     source: z.enum(['STUB', 'RULES', 'LLM', 'LLM_FALLBACK', 'CACHE']),
     needs_human: z.boolean().optional(),
 });
@@ -84,6 +92,12 @@ function createDiagnosisHandler(prisma) {
                     source: diagnosis.source || 'STUB',
                     needs_human: diagnosis.needsHuman ?? fixJson.needs_human ?? false,
                 };
+
+                if (Array.isArray(fixJson.sources_detailed) && fixJson.sources_detailed.length > 0) {
+                    diagnosisData.sources = fixJson.sources_detailed;
+                } else if (Array.isArray(fixJson.sources) && fixJson.sources.length > 0) {
+                    diagnosisData.sources = fixJson.sources.map(s => typeof s === 'string' ? { id: s, title: s, url: null } : s);
+                }
 
                 const response = {
                     status: 'DONE',

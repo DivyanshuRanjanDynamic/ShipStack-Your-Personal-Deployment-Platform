@@ -6,7 +6,10 @@
     "validate": "tsx scripts/validate.ts",
     "generate": "tsx scripts/generate.ts",
     "run": "tsx run.ts",
-    "test": "node --import tsx --test test/**/*.test.ts"
+    "eval:retrieval": "tsx run-retrieval.ts",
+    "check:overlap": "tsx scripts/check-overlap.ts",
+    "test": "node --import tsx --test test/**/*.test.ts",
+    "pretest": "tsx scripts/check-overlap.ts"
   },
   "dependencies": {
     "zod": "^3.24.0",

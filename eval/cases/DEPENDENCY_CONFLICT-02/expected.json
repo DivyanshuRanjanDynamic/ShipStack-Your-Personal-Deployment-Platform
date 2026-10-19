@@ -6,5 +6,6 @@
   "fix_must_mention": ["eslint", "8", "pin"],
   "difficulty": "medium",
   "framework": "cra",
-  "package_manager": "npm"
+  "package_manager": "npm",
+  "relevant_kb_ids": ["npm-eresolve-peer-deps", "shipstack-npm-peer-deps"]
 }

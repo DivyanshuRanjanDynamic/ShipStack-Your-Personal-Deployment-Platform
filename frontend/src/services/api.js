@@ -260,13 +260,20 @@ export function validateDiagnosisResponse(data) {
         root_cause: String(diag.root_cause || 'No root cause identified'),
         fix_steps: Array.isArray(diag.fix_steps) ? diag.fix_steps.map(s => ({
           step: String(s.step || ''),
-          type: String(s.type || 'none')
+          type: String(s.type || 'none'),
+          source_chunk_id: s.source_chunk_id ? String(s.source_chunk_id) : null
         })) : [],
         evidence: Array.isArray(diag.evidence) ? diag.evidence.map(e => ({
           line: typeof e.line === 'number' ? e.line : 1,
           text: stripAnsi(String(e.text || ''))
         })) : [],
-        source: String(diag.source || 'STUB')
+        sources: Array.isArray(diag.sources) ? diag.sources.map(src => ({
+          id: String(src.id || ''),
+          title: String(src.title || src.id || ''),
+          url: src.url ? String(src.url) : null
+        })) : [],
+        source: String(diag.source || 'STUB'),
+        needs_human: Boolean(diag.needs_human)
       }
     };
   }

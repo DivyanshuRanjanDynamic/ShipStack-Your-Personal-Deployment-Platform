@@ -68,18 +68,21 @@ Do not start Step 4 until Step 3 shows retrieval actually finds the right knowle
 
 ## 5. Knowledge base
 
-### 5.1 Sources and licensing
-Priority order:
-1. **Your own playbooks**, one or more per taxonomy category (primary).
-2. **Selected official docs and error pages** (Vite, Create React App, Next.js static export, npm/yarn/pnpm, Node), added deliberately one at a time, not bulk-scraped.
+### 5.1 Sources, structure and licensing
+Adopt a three-layer knowledge base:
+1. **Official doc sections (`knowledge/external/<source>/<slug>.md`)**: Verbatim sections of official docs (troubleshooting pages, error-code references, build-output and config docs) from project repositories (Vite, npm, Node.js, Next.js). Pinned to commit SHAs, not scraped from rendered websites. The diagnosing model acts as reader and citer, eliminating fabricated facts.
+2. **Retrieval hints (`embedText`)**: Exact error signatures, error codes, and symptoms extracted from doc text to bridge the gap between human-oriented documentation and real log error strings.
+3. **ShipStack playbooks (`knowledge/playbooks/<CATEGORY>/<slug>.md`)**: Small layer of platform-specific playbooks covering ShipStack platform conventions (e.g., expected output directories, configuring Node version or environment variables in project settings).
 
 Rules:
-- Check each external source's license and terms before ingesting; record `license` and `sourceUrl`.
-- Write playbooks in your own words; do not paste long passages from docs. Link to the source instead.
-- Never copy eval fixtures (logs or expected answers) into the knowledge base. The KB must be built from general sources, otherwise the eval measures memorization.
+- Check each external source's license and terms before ingesting; record `license`, `sourceUrl`, and `commitSha`.
+- Keep the project's license notice alongside snapshots in `knowledge/external/<source>/LICENSE`.
+- `content` contains verbatim official doc text or verified ShipStack playbook text.
+- Retrieval hints (`symptoms`, `errorSignatures`) guide matching in `embedText` and are validated, never presented as user-facing facts.
+- Never copy eval fixtures (logs or expected answers) into the knowledge base to prevent test memorization.
 - No secrets, tokens or private URLs in any entry.
-- Starting size: about 100 to 250 chunks. Quality and coverage of the failure categories beat volume.
-- Written from dev-split failure analysis; test-split failures must not influence content.
+- Starting size: focused set of relevant sections covering dev-split failure categories first. Quality and precision beat raw volume.
+- Written and tuned from dev-split failure analysis; test-split failures must not influence knowledge authoring.
 
 ### 5.2 Embeddings
 - `Embedder` interface (`embed(texts, taskType) -> number[][]`), provider and model from config; mockable in tests.
@@ -92,48 +95,46 @@ Rules:
 ```
 knowledge/
   playbooks/<CATEGORY>/<slug>.md
-  external/<source>/<slug>.md
+  external/<source>/
+    LICENSE
+    <slug>.md
   schema.ts               # zod schema for frontmatter
 ```
 
-Each file is one problem, with frontmatter validated by zod:
+Each file is one problem or doc section, with frontmatter validated by zod:
 
 ```markdown
 ---
-id: wrong-output-dir-vite-default
-title: Build succeeds but nothing is uploaded (output directory mismatch)
-category: WRONG_OUTPUT_DIR
-framework: [vite, cra, next, unknown]   # [] or omitted = generic
-packageManager: []                      # [] = any
+id: npm-eresolve-peer-conflict
+title: npm ERESOLVE unable to resolve dependency tree
+category: DEPENDENCY_CONFLICT
+framework: []                           # [] = any / generic
+packageManager: [npm]                   # [] = any
 symptoms:
-  - build finishes with no error but the upload step finds no files
-  - output folder is not the one ShipStack expects
+  - npm install fails with ERESOLVE could not resolve
+  - conflicting peer dependency
 errorSignatures:
-  - "no files found"
-appliesTo: "common default output directories"
+  - "ERESOLVE"
+  - "unable to resolve dependency tree"
+  - "Conflicting peer dependency"
+appliesTo: "npm v7+ strict peer dependency resolution"
 sources:
-  - url: https://example.org/docs-page
-    license: "..."
+  - url: https://github.com/npm/cli/blob/v10.8.2/docs/content/using-npm/config.md#legacy-peer-deps
+    license: "Artistic-2.0"
+    commitSha: "a1b2c3d4"
     retrievedAt: 2026-10-17
 reviewed: true
 ---
-## Cause
-...
-## Fix
-1. ...
-2. ...
-## Caveats
-...
+## Cause & Fix
+(Verbatim doc section or verified ShipStack playbook content)
 ```
 
-(Example only. Real content must be verified against sources before `reviewed: true`.)
-
 ### 5.4 Chunking
-- Chunk by **problem**, not by size. One entry is usually one chunk; split only when an entry has clearly separate sub-problems (for example per-framework variants).
+- Chunk by **section or problem**, not arbitrary token slices.
 - Keep two texts per chunk:
-  - `embedText`: title + symptoms + error signatures + short cause (what retrieval matches against)
-  - `content`: the full entry (what the model reads)
-- Keep chunks short (roughly 150 to 500 tokens) so 3 to 5 of them fit the prompt budget.
+  - `embedText`: title + symptoms + error signatures + section heading (what vector + keyword retrieval matches against)
+  - `content`: verbatim doc section or playbook text (what the model reads and cites)
+- Keep chunks focused (roughly 150 to 500 tokens) so 3 to 5 chunks easily fit the prompt budget without bloat.
 
 ## 6. Storage
 

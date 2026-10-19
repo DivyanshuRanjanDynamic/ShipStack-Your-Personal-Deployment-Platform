@@ -21,6 +21,8 @@ export const FixStep = z.object({
   step: z.string().min(1),
   /** Classification of what kind of change is needed. */
   type: FixStepType,
+  /** ID of the retrieved knowledge chunk this step was derived from, or null if from logs alone. */
+  source_chunk_id: z.string().nullable().optional(),
 });
 export type FixStep = z.infer<typeof FixStep>;
 

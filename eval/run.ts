@@ -17,8 +17,8 @@ import { saveReport, type EvalRunReport } from "./reporter.js";
 import { estimateCostUsd } from "./config.js";
 
 // Versions pinned in every report
-export const PIPELINE_VERSION = "2.0.0";
-export const PROMPT_VERSION = "2.0.0";
+export const PIPELINE_VERSION = "3.0.0";
+export const PROMPT_VERSION = "3.0.0";
 
 interface CliOptions {
   mode: "unknown" | "rules" | "llm" | "hybrid";
@@ -238,6 +238,8 @@ async function evaluateCase(
           root_cause: rulesResult.bestMatch.rootCause,
           fix_steps: rulesResult.bestMatch.fixSteps,
           evidence: rulesResult.bestMatch.evidence,
+          sources: ["rules"],
+          retrievedChunkIds: [],
           source: "RULES",
           needs_human: false,
           isValidJson: true,
@@ -271,6 +273,8 @@ async function evaluateCase(
         root_cause: diagResult.rootCause,
         fix_steps: diagResult.fixJson.fix_steps,
         evidence: diagResult.fixJson.evidence,
+        sources: diagResult.fixJson.sources || [],
+        retrievedChunkIds: diagResult.fixJson.retrieved_chunk_ids || [],
         source: diagResult.source,
         needs_human: diagResult.fixJson.needs_human,
         isValidJson: true,

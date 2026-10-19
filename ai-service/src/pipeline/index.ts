@@ -51,8 +51,8 @@ export async function runPipeline(request: DiagnosisRequest): Promise<PipelineDi
           tokensIn: null,
           tokensOut: null,
           latencyMs: null,
-          promptVersion: "2.0.0",
-          pipelineVersion: "2.0.0",
+          promptVersion: "3.0.0",
+          pipelineVersion: "3.0.0",
         }
       : {
           category: "UNKNOWN",
@@ -70,8 +70,8 @@ export async function runPipeline(request: DiagnosisRequest): Promise<PipelineDi
           tokensIn: null,
           tokensOut: null,
           latencyMs: null,
-          promptVersion: "2.0.0",
-          pipelineVersion: "2.0.0",
+          promptVersion: "3.0.0",
+          pipelineVersion: "3.0.0",
         };
 
     logger.info(`Completed diagnosis pipeline (short-circuited by rules) for deployment ${request.deployment_id} in ${totalDurationMs}ms`, {

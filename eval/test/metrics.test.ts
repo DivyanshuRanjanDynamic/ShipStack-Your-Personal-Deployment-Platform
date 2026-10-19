@@ -14,6 +14,7 @@ describe("Eval Metrics & Scoring", () => {
     difficulty: "easy",
     framework: "vite",
     package_manager: "npm",
+    relevant_kb_ids: [],
   };
 
   it("scores root-cause 2 when both root cause and fix match", () => {
@@ -146,4 +147,53 @@ describe("Eval Metrics & Scoring", () => {
     assert.strictEqual(metrics.evidenceValidity.validEvidenceCount, 1);
     assert.strictEqual(metrics.latency.p50Ms, 150);
   });
+
+  it("handles empty results array gracefully", () => {
+    const metrics = computeMetrics([]);
+    assert.strictEqual(metrics.totalCases, 0);
+    assert.strictEqual(metrics.overallAccuracy, 0);
+    assert.strictEqual(metrics.citations.totalFixSteps, 0);
+    assert.strictEqual(metrics.citations.citationValidityRate, 1.0);
+  });
+
+  it("validates citations strictly against retrievedChunkIds", () => {
+    const results: CaseEvalResult[] = [
+      {
+        caseId: "test-case-1",
+        expected: dummyExpected,
+        predicted: {
+          category: "DEPENDENCY_CONFLICT",
+          confidence: 0.9,
+          root_cause: "Peer dependency conflict",
+          fix_steps: [
+            { step: "Valid citation step", source_chunk_id: "chunk-valid" },
+            { step: "Hallucinated citation step", source_chunk_id: "chunk-hallucinated" },
+            { step: "Ungrounded step", source_chunk_id: null },
+          ],
+          evidence: [],
+          sources: ["chunk-valid", "chunk-hallucinated"],
+          retrievedChunkIds: ["chunk-valid", "other-chunk"],
+          source: "LLM",
+          isValidJson: true,
+          retried: false,
+          escalated: false,
+          fallback: false,
+        },
+        rawLogs: "sample logs",
+        latencyMs: 100,
+        tokensIn: 10,
+        tokensOut: 10,
+        model: "test-model",
+        costUsd: 0.001,
+      },
+    ];
+
+    const metrics = computeMetrics(results);
+    assert.strictEqual(metrics.citations.totalFixSteps, 3);
+    assert.strictEqual(metrics.citations.groundedStepsCount, 2);
+    assert.strictEqual(metrics.citations.totalCitations, 2);
+    assert.strictEqual(metrics.citations.validCitations, 1); // Only chunk-valid is in retrievedChunkIds
+    assert.strictEqual(metrics.citations.citationValidityRate, 0.5);
+  });
 });
+

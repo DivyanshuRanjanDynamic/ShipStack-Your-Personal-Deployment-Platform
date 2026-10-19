@@ -1,0 +1,115 @@
+{
+  "timestamp": "2026-10-17T07:55:47.566Z",
+  "mode": "hybrid",
+  "split": "test",
+  "model": "none",
+  "promptVersion": "3.0.0",
+  "pipelineVersion": "3.0.0",
+  "metrics": {
+    "totalCases": 2,
+    "overallAccuracy": 1,
+    "categoryAccuracy": {
+      "DEPENDENCY_CONFLICT": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      },
+      "MODULE_NOT_FOUND": {
+        "total": 1,
+        "correct": 1,
+        "accuracy": 1
+      }
+    },
+    "difficultyAccuracy": {
+      "hard": {
+        "total": 2,
+        "correct": 2,
+        "accuracy": 1
+      }
+    },
+    "confusionMatrix": {
+      "DEPENDENCY_CONFLICT": {
+        "DEPENDENCY_CONFLICT": 1
+      },
+      "MODULE_NOT_FOUND": {
+        "MODULE_NOT_FOUND": 1
+      }
+    },
+    "rootCauseScore": {
+      "averageScore": 1,
+      "fullMatchCount": 1,
+      "partialMatchCount": 0,
+      "noMatchCount": 1,
+      "scores": {
+        "DEPENDENCY_CONFLICT-03": 0,
+        "MODULE_NOT_FOUND-03": 2
+      }
+    },
+    "evidenceValidity": {
+      "totalEvidenceCited": 11,
+      "validEvidenceCount": 11,
+      "validityRate": 1
+    },
+    "citations": {
+      "totalFixSteps": 3,
+      "groundedStepsCount": 2,
+      "groundedStepRate": 0.667,
+      "totalCitations": 2,
+      "validCitations": 2,
+      "citationValidityRate": 1
+    },
+    "jsonValidityRate": 1,
+    "retryRate": 0,
+    "fallbackRate": 0,
+    "escalationRate": 0,
+    "latency": {
+      "meanMs": 1920,
+      "p50Ms": 1920,
+      "p95Ms": 3554,
+      "minMs": 103,
+      "maxMs": 3736
+    },
+    "tokens": {
+      "totalIn": 3315,
+      "totalOut": 832,
+      "meanIn": 1658,
+      "meanOut": 416
+    },
+    "cost": {
+      "totalUsd": 0.002323,
+      "meanUsd": 0.001162
+    }
+  },
+  "cases": [
+    {
+      "caseId": "DEPENDENCY_CONFLICT-03",
+      "expectedCategory": "DEPENDENCY_CONFLICT",
+      "predictedCategory": "DEPENDENCY_CONFLICT",
+      "isCorrect": true,
+      "confidence": 0.95,
+      "source": "RULES",
+      "needsHuman": false,
+      "rootCauseScore": 0,
+      "evidenceCited": 8,
+      "latencyMs": 103,
+      "tokensIn": 0,
+      "tokensOut": 0,
+      "costUsd": 0
+    },
+    {
+      "caseId": "MODULE_NOT_FOUND-03",
+      "expectedCategory": "MODULE_NOT_FOUND",
+      "predictedCategory": "MODULE_NOT_FOUND",
+      "isCorrect": true,
+      "confidence": 0.95,
+      "source": "LLM",
+      "needsHuman": false,
+      "rootCauseScore": 2,
+      "evidenceCited": 3,
+      "latencyMs": 3736,
+      "tokensIn": 3315,
+      "tokensOut": 832,
+      "costUsd": 0.002323
+    }
+  ]
+}
