@@ -13,6 +13,7 @@ const grpc = require('@grpc/grpc-js')
 const protoLoader = require('@grpc/proto-loader')
 
 const { createDiagnosisRouter } = require('./routes/diagnosis')
+const { statusTransitionFor } = require('./src/deployment-status')
 
 require('dotenv').config();
 
@@ -399,18 +400,21 @@ async function initKafkaConsumer() {
                             metadata: JSON.stringify({ project_id: PROJECT_ID })
                         });
 
-                        // Update deployment status based on build progress log events
-                        if (log.includes('Starting the build process......')) {
+                        // Update deployment status based on build progress log events.
+                        // Status-text signals are only honored on platform lines (no step),
+                        // so a user's build output cannot spoof its deployment status.
+                        const transition = statusTransitionFor({ log, step, event, exit_code });
+                        if (transition === 'IN_PROGRESS') {
                             await prisma.deployment.update({
                                 where: { id: DEPLOYMENT_ID },
                                 data: { status: 'IN_PROGRESS' }
                             }).catch(err => console.error(`Error updating status to IN_PROGRESS:`, err.message));
-                        } else if (log.includes('Uploading to S3 Done!!!!!!')) {
+                        } else if (transition === 'SUCCESS') {
                             await prisma.deployment.update({
                                 where: { id: DEPLOYMENT_ID },
                                 data: { status: 'SUCCESS' }
                             }).catch(err => console.error(`Error updating status to SUCCESS:`, err.message));
-                        } else if (log.includes('Build process failed!') || log.includes('Error: Neither') || (event === 'step_end' && exit_code !== 0)) {
+                        } else if (transition === 'FAILURE') {
                             // Atomically mark deployment as FAILURE.
                             // If update count === 1, this is the first failure signal: publish diagnosis request.
                             // If update count === 0, it was already marked FAILURE by an earlier log line: skip duplicate publish.
