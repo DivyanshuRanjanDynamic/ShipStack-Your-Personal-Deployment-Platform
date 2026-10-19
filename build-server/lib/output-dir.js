@@ -50,7 +50,11 @@ function resolveConfigured(projectDir, configured) {
     }
     const target = path.resolve(projectDir, configured);
     const realProject = fs.realpathSync(projectDir);
-    if (!fs.existsSync(target)) throw new Error(`output directory "${configured}" does not exist after the build`);
+    if (!fs.existsSync(target)) {
+        const err = new Error(`output directory "${configured}" does not exist after the build`);
+        err.code = 'OUTPUT_MISSING';
+        throw err;
+    }
     const realTarget = fs.realpathSync(target);
     if (realTarget !== realProject && !realTarget.startsWith(realProject + path.sep)) {
         throw new Error(`output directory "${configured}" resolves outside the project`);
@@ -70,15 +74,25 @@ const NEXT_EXPORT_GUIDANCE = [
  *         { ok: false, failureReason, logLines }.
  */
 function resolveOutputDir({ projectDir, framework = null, buildStartedMs = 0, configured = null }) {
+    // A Next.js build that produced no static output needs the export guidance, whatever was configured.
+    const nextWithoutStaticOutput = (firstLine) => ({
+        ok: false,
+        failureReason: 'UNSUPPORTED_PROJECT',
+        logLines: [firstLine, ...NEXT_EXPORT_GUIDANCE.map((l) => `[upload] ${l}`)],
+    });
+
     if (configured != null && String(configured).trim() !== '') {
         try {
             const dir = resolveConfigured(projectDir, String(configured).trim());
             if (!hasTopLevelIndex(dir)) {
-                return { ok: false, failureReason: 'UPLOAD_EMPTY', logLines: [`[upload] configured output directory "${configured}" has no index.html at its top level`] };
+                const line = `[upload] configured output directory "${configured}" has no index.html at its top level`;
+                return framework === 'next' ? nextWithoutStaticOutput(line) : { ok: false, failureReason: 'UPLOAD_EMPTY', logLines: [line] };
             }
             return { ok: true, dir, relative: String(configured).trim(), warning: null };
         } catch (err) {
-            return { ok: false, failureReason: 'UPLOAD_EMPTY', logLines: [`[upload] ${err.message}`] };
+            const line = `[upload] ${err.message}`;
+            if (framework === 'next' && err.code === 'OUTPUT_MISSING') return nextWithoutStaticOutput(line);
+            return { ok: false, failureReason: 'UPLOAD_EMPTY', logLines: [line] };
         }
     }
 

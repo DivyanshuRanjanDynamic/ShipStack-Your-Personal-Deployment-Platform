@@ -113,4 +113,44 @@ describe('resolveOutputDir', () => {
         assert.strictEqual(result.failureReason, 'UPLOAD_EMPTY');
         assert.match(result.logLines[0], /must not contain/);
     });
+
+    it('gives Next.js export guidance when a configured output dir was not produced', () => {
+        const repo = makeTree({ '.next/BUILD_ID': '' });
+        const result = resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED, configured: 'out' });
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(result.failureReason, 'UNSUPPORTED_PROJECT');
+        assert.deepStrictEqual(result.logLines, [
+            '[upload] output directory "out" does not exist after the build',
+            ...NEXT_EXPORT_GUIDANCE.map((l) => `[upload] ${l}`),
+        ]);
+    });
+
+    it('gives Next.js export guidance when the configured dir has no index.html (e.g. .next)', () => {
+        const repo = makeTree({ '.next/BUILD_ID': '', '.next/server/app.js': '' });
+        const result = resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED, configured: '.next' });
+        assert.strictEqual(result.failureReason, 'UNSUPPORTED_PROJECT');
+        assert.match(result.logLines[0], /has no index\.html/);
+        assert.strictEqual(result.logLines.length, 1 + NEXT_EXPORT_GUIDANCE.length);
+    });
+
+    it('keeps UPLOAD_EMPTY for a missing configured dir on non-Next frameworks', () => {
+        const repo = makeTree({ 'dist/app.js': '' });
+        const result = resolveOutputDir({ projectDir: repo, framework: 'vite', buildStartedMs: BUILD_STARTED, configured: 'build' });
+        assert.strictEqual(result.failureReason, 'UPLOAD_EMPTY');
+        assert.strictEqual(result.logLines.length, 1);
+    });
+
+    it('keeps UPLOAD_EMPTY for an invalid configured path even on Next.js', () => {
+        const repo = makeTree({ 'out/index.html': '' });
+        const result = resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED, configured: '../out' });
+        assert.strictEqual(result.failureReason, 'UPLOAD_EMPTY');
+        assert.match(result.logLines[0], /must not contain/);
+    });
+
+    it('still deploys a configured out/ that a static-export Next.js build produced', () => {
+        const repo = makeTree({ 'out/index.html': '' });
+        const result = resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED, configured: 'out' });
+        assert.strictEqual(result.ok, true);
+        assert.strictEqual(result.relative, 'out');
+    });
 });
