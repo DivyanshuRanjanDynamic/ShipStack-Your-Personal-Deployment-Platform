@@ -1,5 +1,6 @@
 const fs = require('fs');
 const path = require('path');
+const { nextNoOutputResult } = require('./next-export');
 
 // A candidate output folder qualifies only if it has an index.html directly inside it.
 function hasTopLevelIndex(dir) {
@@ -62,10 +63,16 @@ function resolveConfigured(projectDir, configured) {
     return realTarget;
 }
 
-const NEXT_EXPORT_GUIDANCE = [
-    'this app needs a Node server (server rendering or API routes); ShipStack hosts static sites',
-    "to deploy as a static site, set output: 'export' in the Next.js config so the build produces out/",
-];
+// A configured output directory that could not be used, with Next-specific guidance appended when
+// the framework is Next.js (a missing out/ there usually means output: 'export' is not set).
+function configuredFailure(projectDir, framework, errorLine) {
+    const base = [`[upload] ${errorLine}`];
+    if (framework === 'next') {
+        const next = nextNoOutputResult(projectDir);
+        return { ok: false, failureReason: next.failureReason, logLines: [...base, ...next.logLines.map((l) => `[upload] ${l}`)] };
+    }
+    return { ok: false, failureReason: 'UPLOAD_EMPTY', logLines: base };
+}
 
 /**
  * Finds the directory to upload after a successful build.
@@ -74,25 +81,15 @@ const NEXT_EXPORT_GUIDANCE = [
  *         { ok: false, failureReason, logLines }.
  */
 function resolveOutputDir({ projectDir, framework = null, buildStartedMs = 0, configured = null }) {
-    // A Next.js build that produced no static output needs the export guidance, whatever was configured.
-    const nextWithoutStaticOutput = (firstLine) => ({
-        ok: false,
-        failureReason: 'UNSUPPORTED_PROJECT',
-        logLines: [firstLine, ...NEXT_EXPORT_GUIDANCE.map((l) => `[upload] ${l}`)],
-    });
-
     if (configured != null && String(configured).trim() !== '') {
         try {
             const dir = resolveConfigured(projectDir, String(configured).trim());
             if (!hasTopLevelIndex(dir)) {
-                const line = `[upload] configured output directory "${configured}" has no index.html at its top level`;
-                return framework === 'next' ? nextWithoutStaticOutput(line) : { ok: false, failureReason: 'UPLOAD_EMPTY', logLines: [line] };
+                return configuredFailure(projectDir, framework, `configured output directory "${configured}" has no index.html at its top level`);
             }
             return { ok: true, dir, relative: String(configured).trim(), warning: null };
         } catch (err) {
-            const line = `[upload] ${err.message}`;
-            if (framework === 'next' && err.code === 'OUTPUT_MISSING') return nextWithoutStaticOutput(line);
-            return { ok: false, failureReason: 'UPLOAD_EMPTY', logLines: [line] };
+            return configuredFailure(projectDir, framework, err.message);
         }
     }
 
@@ -117,10 +114,11 @@ function resolveOutputDir({ projectDir, framework = null, buildStartedMs = 0, co
     }
 
     if (framework === 'next') {
+        const next = nextNoOutputResult(projectDir);
         return {
             ok: false,
-            failureReason: 'UNSUPPORTED_PROJECT',
-            logLines: NEXT_EXPORT_GUIDANCE.map((l) => `[upload] ${l}`),
+            failureReason: next.failureReason,
+            logLines: next.logLines.map((l) => `[upload] ${l}`),
         };
     }
 
@@ -131,4 +129,4 @@ function resolveOutputDir({ projectDir, framework = null, buildStartedMs = 0, co
     };
 }
 
-module.exports = { resolveOutputDir, candidateDirs, NEXT_EXPORT_GUIDANCE };
+module.exports = { resolveOutputDir, candidateDirs };

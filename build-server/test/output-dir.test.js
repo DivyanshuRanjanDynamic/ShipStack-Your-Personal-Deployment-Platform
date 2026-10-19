@@ -3,7 +3,7 @@ const assert = require('node:assert');
 const fs = require('fs');
 const path = require('path');
 const { makeTree } = require('./helpers');
-const { resolveOutputDir, candidateDirs, NEXT_EXPORT_GUIDANCE } = require('../lib/output-dir');
+const { resolveOutputDir, candidateDirs } = require('../lib/output-dir');
 
 const BUILD_STARTED = 1_000_000_000_000; // fixed reference point
 const setIndexMtime = (dir, relative, ms) => {
@@ -75,13 +75,32 @@ describe('resolveOutputDir', () => {
         assert.strictEqual(resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED }).relative, 'out');
     });
 
-    it('fails a server Next.js app with UNSUPPORTED_PROJECT and export guidance', () => {
-        const repo = makeTree({ '.next/index.html': '', '.next/BUILD_ID': '' });
-        setIndexMtime(repo, '.next', BUILD_STARTED + 1000);
+    it('tells a static Next.js app with no out/ to set output: export (UPLOAD_EMPTY, not UNSUPPORTED_PROJECT)', () => {
+        // A finished Next build with no API routes or route handlers: fully static, just missing export config.
+        const repo = makeTree({ '.next/BUILD_ID': '', '.next/server/app/page.js': '' });
+        const result = resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED });
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(result.failureReason, 'UPLOAD_EMPTY');
+        const text = result.logLines.join('\n');
+        assert.match(text, /output: 'export'/);
+        assert.doesNotMatch(text, /needs a Node server/);
+    });
+
+    it('fails a genuinely server-bound Next.js app with UNSUPPORTED_PROJECT', () => {
+        const repo = makeTree({ '.next/BUILD_ID': '', '.next/server/app/api/hello/route.js': '' });
         const result = resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED });
         assert.strictEqual(result.ok, false);
         assert.strictEqual(result.failureReason, 'UNSUPPORTED_PROJECT');
-        assert.deepStrictEqual(result.logLines, NEXT_EXPORT_GUIDANCE.map((l) => `[upload] ${l}`));
+        assert.match(result.logLines.join('\n'), /need a Node server/);
+    });
+
+    it('appends Next export guidance when a configured output directory is missing', () => {
+        const repo = makeTree({ '.next/BUILD_ID': '' });
+        const result = resolveOutputDir({ projectDir: repo, framework: 'next', buildStartedMs: BUILD_STARTED, configured: 'out' });
+        assert.strictEqual(result.ok, false);
+        assert.strictEqual(result.failureReason, 'UPLOAD_EMPTY');
+        assert.match(result.logLines[0], /"out" does not exist/);
+        assert.match(result.logLines.join('\n'), /output: 'export'/);
     });
 
     it('fails with UPLOAD_EMPTY when no directory has a top-level index.html', () => {
