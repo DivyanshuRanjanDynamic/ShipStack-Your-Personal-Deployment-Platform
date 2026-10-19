@@ -18,6 +18,10 @@ export const FailureReason = z.enum([
   "NONZERO_EXIT",
   "UPLOAD_EMPTY",
   "CLONE_FAILED",
+  "UNSUPPORTED_PROJECT",
+  "UPLOAD_FAILED",
+  "MISSING_BUILD_SCRIPT",
+  "ROOT_DIR_AMBIGUOUS",
 ]);
 export type FailureReason = z.infer<typeof FailureReason>;
 

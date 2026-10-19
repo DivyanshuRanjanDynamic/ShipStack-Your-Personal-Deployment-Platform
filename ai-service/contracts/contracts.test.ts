@@ -3,6 +3,7 @@ import {
   BuildContext,
   DiagnosisRequest,
   DiagnosisSource,
+  FailureReason,
   LlmOutput,
 } from "./index.js";
 
@@ -181,5 +182,23 @@ describe("LlmOutput schema", () => {
     };
     expect(LlmOutput.safeParse({ ...base, evidence: [], fix_steps: [{ step: "x", type: "none" }] }).success).toBe(false);
     expect(LlmOutput.safeParse({ ...base, evidence: [{ line: 1, text: "x" }], fix_steps: [] }).success).toBe(false);
+  });
+});
+
+describe("FailureReason enum", () => {
+  it("keeps the existing reasons", () => {
+    for (const r of ["TASK_OOM", "TIMEOUT", "NONZERO_EXIT", "UPLOAD_EMPTY", "CLONE_FAILED"]) {
+      expect(FailureReason.safeParse(r).success).toBe(true);
+    }
+  });
+
+  it("accepts the build-server reasons", () => {
+    for (const r of ["UNSUPPORTED_PROJECT", "UPLOAD_FAILED", "MISSING_BUILD_SCRIPT", "ROOT_DIR_AMBIGUOUS"]) {
+      expect(FailureReason.safeParse(r).success).toBe(true);
+    }
+  });
+
+  it("rejects unknown reasons", () => {
+    expect(FailureReason.safeParse("SOMETHING_ELSE").success).toBe(false);
   });
 });
