@@ -7,6 +7,10 @@ const FailureReasonEnum = z.enum([
     'NONZERO_EXIT',
     'UPLOAD_EMPTY',
     'CLONE_FAILED',
+    'UNSUPPORTED_PROJECT',
+    'UPLOAD_FAILED',
+    'MISSING_BUILD_SCRIPT',
+    'ROOT_DIR_AMBIGUOUS',
 ]);
 
 const DiagnosisRequestSchema = z.object({
@@ -67,7 +71,7 @@ function createDiagnosisPublisher(prisma, kafkaProducer, topicName = process.env
                 ? failedStep
                 : 'clone';
 
-            const validReason = ['TASK_OOM', 'TIMEOUT', 'NONZERO_EXIT', 'UPLOAD_EMPTY', 'CLONE_FAILED'].includes(failureReason)
+            const validReason = FailureReasonEnum.options.includes(failureReason)
                 ? failureReason
                 : 'NONZERO_EXIT';
 

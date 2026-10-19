@@ -118,4 +118,30 @@ describe('Layer A Diagnosis Publisher', () => {
 
         assert.doesNotThrow(() => DiagnosisRequestSchema.parse(validPayload));
     });
+
+    async function publishWithReason(failureReason) {
+        const sent = [];
+        const mockPrisma = { diagnosis: { findUnique: async () => null } };
+        const publisher = createDiagnosisPublisher(mockPrisma, { send: async (r) => sent.push(r) }, 'diagnosis-requests');
+        return publisher({
+            deploymentId: 'dep-reason-1',
+            projectId: 'proj-1',
+            gitUrl: 'https://github.com/org/repo',
+            failedStep: 'build',
+            exitCode: 1,
+            failureReason,
+        });
+    }
+
+    it('passes the build-server failure reasons through unchanged', async () => {
+        for (const reason of ['UNSUPPORTED_PROJECT', 'UPLOAD_FAILED', 'MISSING_BUILD_SCRIPT', 'ROOT_DIR_AMBIGUOUS']) {
+            const result = await publishWithReason(reason);
+            assert.strictEqual(result.payload.failure_reason, reason);
+        }
+    });
+
+    it('maps an unknown failure reason to NONZERO_EXIT', async () => {
+        const result = await publishWithReason('NOT_A_REASON');
+        assert.strictEqual(result.payload.failure_reason, 'NONZERO_EXIT');
+    });
 });
