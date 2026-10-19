@@ -60,12 +60,12 @@ function parseUserEnvJson(raw, { maxBytes = DEFAULT_MAX_BYTES, maxVars = DEFAULT
 /**
  * Builds the child environment for install and build from an allowlist, never a spread of the
  * task environment. Platform secrets are absent because they are never copied. User vars are
- * applied except reserved ones; PATH (with the selected Node first) and NODE_OPTIONS (user
- * value plus the legacy flag when needed) are computed last.
+ * applied except reserved ones; PATH (extraPathDirs, then the selected Node, then the base PATH)
+ * and NODE_OPTIONS (user value plus the legacy flag when needed) are computed last.
  *
  * Returns { env, appliedKeys, rejectedReservedKeys }.
  */
-function buildChildEnv({ baseEnv = process.env, nodeBinDir = null, legacyOpenSSL = false, userEnv = {} }) {
+function buildChildEnv({ baseEnv = process.env, nodeBinDir = null, extraPathDirs = [], legacyOpenSSL = false, userEnv = {} }) {
     const env = {};
     for (const key of ALLOWLIST_BASE) {
         if (baseEnv[key] !== undefined) env[key] = baseEnv[key];
@@ -89,8 +89,9 @@ function buildChildEnv({ baseEnv = process.env, nodeBinDir = null, legacyOpenSSL
         }
     }
 
+    // Extra dirs (pnpm shim, the project's node_modules/.bin) come first, then the selected Node.
     const basePath = baseEnv.PATH || '';
-    env.PATH = nodeBinDir ? `${nodeBinDir}${path.delimiter}${basePath}` : basePath;
+    env.PATH = [...extraPathDirs, nodeBinDir, basePath].filter(Boolean).join(path.delimiter);
 
     let nodeOptions = userNodeOptions || '';
     if (legacyOpenSSL) nodeOptions = appendNodeOption(nodeOptions, '--openssl-legacy-provider');

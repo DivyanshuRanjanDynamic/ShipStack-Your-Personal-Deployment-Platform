@@ -1,8 +1,16 @@
 const { describe, it } = require('node:test');
 const assert = require('node:assert');
+const fs = require('fs');
 const path = require('path');
 const { makeTree, recordingLogSink } = require('./helpers');
-const { planInstall, runInstall, planBuild } = require('../lib/install');
+const {
+    planInstall,
+    runInstall,
+    planBuild,
+    pnpmLockfileVersion,
+    pnpmVersionForLockfile,
+    writePnpmShim,
+} = require('../lib/install');
 
 const pkg = (obj) => JSON.stringify(obj);
 
@@ -200,5 +208,63 @@ describe('planBuild', () => {
     it('uses a configured build command even without a build script', () => {
         const dir = makeTree({ 'package.json': '{}' });
         assert.deepStrictEqual(planBuild({ projectDir: dir, manager: 'npm', buildCommand: 'npx vite build --base=/app/' }).command, 'npx vite build --base=/app/');
+    });
+});
+
+describe('pnpm version pinning', () => {
+    it('reads lockfileVersion in quoted and unquoted forms', () => {
+        assert.strictEqual(pnpmLockfileVersion(makeTree({ 'pnpm-lock.yaml': "lockfileVersion: '9.0'\n\nsettings:\n" })), '9.0');
+        assert.strictEqual(pnpmLockfileVersion(makeTree({ 'pnpm-lock.yaml': 'lockfileVersion: 5.4\n' })), '5.4');
+        assert.strictEqual(pnpmLockfileVersion(makeTree({ 'pnpm-lock.yaml': 'packages: {}\n' })), null);
+        assert.strictEqual(pnpmLockfileVersion(makeTree({})), null);
+    });
+
+    it('maps each lockfile format to the pnpm release line that writes it', () => {
+        assert.strictEqual(pnpmVersionForLockfile('9.0'), '9.15.9');
+        assert.strictEqual(pnpmVersionForLockfile('6.0'), '8.15.9');
+        assert.strictEqual(pnpmVersionForLockfile('6.1'), '8.15.9');
+        assert.strictEqual(pnpmVersionForLockfile('5.4'), '7.33.7');
+        assert.strictEqual(pnpmVersionForLockfile('5.3'), '6.35.1');
+        assert.strictEqual(pnpmVersionForLockfile('10.0'), null);
+        assert.strictEqual(pnpmVersionForLockfile(null), null);
+    });
+
+    it('pins pnpm from the lockfile when there is no packageManager field', () => {
+        const repo = makeTree({ 'package.json': pkg({ scripts: { build: 'next build' } }), 'pnpm-lock.yaml': "lockfileVersion: '9.0'\n" });
+        const plan = planInstall({ repoPath: repo, projectDir: repo });
+        assert.strictEqual(plan.pnpmPin, '9.15.9');
+        assert.ok(plan.logLines.includes('[setup] pnpm 9.15.9 pinned (source: pnpm-lock.yaml lockfileVersion 9.0; no packageManager field)'));
+        assert.strictEqual(plan.command, 'pnpm install --frozen-lockfile');
+    });
+
+    it('keeps the pin when the install command is configured', () => {
+        const repo = makeTree({ 'package.json': '{}', 'pnpm-lock.yaml': "lockfileVersion: '9.0'\n" });
+        assert.strictEqual(planInstall({ repoPath: repo, projectDir: repo, installCommand: 'pnpm i' }).pnpmPin, '9.15.9');
+    });
+
+    it('does not pin when packageManager names a pnpm version', () => {
+        const repo = makeTree({ 'package.json': pkg({ packageManager: 'pnpm@10.4.1' }), 'pnpm-lock.yaml': "lockfileVersion: '9.0'\n" });
+        assert.strictEqual(planInstall({ repoPath: repo, projectDir: repo }).pnpmPin, null);
+    });
+
+    it('does not pin npm or yarn projects', () => {
+        const npmRepo = makeTree({ 'package.json': '{}', 'package-lock.json': '{}' });
+        assert.strictEqual(planInstall({ repoPath: npmRepo, projectDir: npmRepo }).pnpmPin, null);
+        const yarnRepo = makeTree({ 'package.json': '{}', 'yarn.lock': '' });
+        assert.strictEqual(planInstall({ repoPath: yarnRepo, projectDir: yarnRepo }).pnpmPin, null);
+    });
+
+    it('logs and falls back to the corepack default for an unknown lockfile format', () => {
+        const repo = makeTree({ 'package.json': '{}', 'pnpm-lock.yaml': "lockfileVersion: '10.0'\n" });
+        const plan = planInstall({ repoPath: repo, projectDir: repo });
+        assert.strictEqual(plan.pnpmPin, null);
+        assert.ok(plan.logLines.some((l) => /unrecognized pnpm-lock.yaml lockfileVersion 10\.0/.test(l)));
+    });
+
+    it('writes a pnpm shim that runs the pinned version through corepack', () => {
+        const dir = makeTree({});
+        const file = writePnpmShim(path.join(dir, 'shims'), '9.15.9');
+        assert.strictEqual(file, path.join(dir, 'shims', 'pnpm'));
+        assert.strictEqual(fs.readFileSync(file, 'utf8'), '#!/bin/sh\nexec corepack pnpm@9.15.9 "$@"\n');
     });
 });

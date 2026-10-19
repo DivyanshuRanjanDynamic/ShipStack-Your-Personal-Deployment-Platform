@@ -11,7 +11,7 @@ const {
 } = require('./lib/sinks');
 const { runStep, runCommand, startShell } = require('./lib/run-step');
 const { selectRootDirectory, describeRootSelection, readPackageJson, detectFramework } = require('./lib/detect');
-const { planInstall, runInstall, planBuild } = require('./lib/install');
+const { planInstall, runInstall, planBuild, writePnpmShim } = require('./lib/install');
 const { selectNodeForProject, needsLegacyOpenSSL, describeNodeSelection } = require('./lib/node-version');
 const { parseUserEnvJson, buildChildEnv } = require('./lib/env');
 const { resolveOutputDir } = require('./lib/output-dir');
@@ -175,8 +175,22 @@ async function init() {
     for (const { key, reason } of userEnvResult.rejected) {
         await logSink.publish({ log: `[setup] ignoring user env var ${key} (${reason})` });
     }
+    // PATH extras: a pinned-pnpm shim (when pnpm runs without a packageManager field), then the
+    // project's node_modules/.bin so configured commands like `next build` find their binaries.
+    const extraPathDirs = [];
+    if (installPlan.ok && installPlan.pnpmPin) {
+        const shimDir = fs.mkdtempSync(path.join(os.tmpdir(), 'shipstack-pm-'));
+        writePnpmShim(shimDir, installPlan.pnpmPin);
+        extraPathDirs.push(shimDir);
+    }
+    extraPathDirs.push(path.join(projectDir, 'node_modules', '.bin'));
+    if (installPlan.ok && installPlan.cwd !== projectDir) {
+        extraPathDirs.push(path.join(installPlan.cwd, 'node_modules', '.bin'));
+    }
+
     const { env: childEnv, appliedKeys, rejectedReservedKeys } = buildChildEnv({
         nodeBinDir: nodeSelection.binDir,
+        extraPathDirs,
         legacyOpenSSL,
         userEnv: userEnvResult.accepted,
     });

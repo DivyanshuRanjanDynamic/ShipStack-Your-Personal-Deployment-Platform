@@ -115,4 +115,20 @@ describe('buildChildEnv', () => {
     it('sets no NODE_OPTIONS when not needed', () => {
         assert.strictEqual('NODE_OPTIONS' in buildChildEnv({ baseEnv, nodeBinDir: '/opt/node/22/bin' }).env, false);
     });
+
+    it('puts extra PATH dirs (pnpm shim, node_modules/.bin) before the selected Node', () => {
+        const delimiter = require('path').delimiter;
+        const { env } = buildChildEnv({
+            baseEnv,
+            nodeBinDir: '/opt/node/18/bin',
+            extraPathDirs: ['/tmp/shipstack-pm-x', '/repo/node_modules/.bin'],
+        });
+        assert.deepStrictEqual(env.PATH.split(delimiter).slice(0, 3), ['/tmp/shipstack-pm-x', '/repo/node_modules/.bin', '/opt/node/18/bin']);
+    });
+
+    it('ignores empty extra PATH entries', () => {
+        const delimiter = require('path').delimiter;
+        const { env } = buildChildEnv({ baseEnv: { PATH: '/usr/bin' }, nodeBinDir: null, extraPathDirs: ['', null, '/a'] });
+        assert.strictEqual(env.PATH, ['/a', '/usr/bin'].join(delimiter));
+    });
 });
