@@ -2,9 +2,12 @@
  * ShipStack API Service Layer
  * 
  * Centralized, typed, resilient client for all ShipStack backend REST endpoints.
- * Base URL is configurable via VITE_API_BASE_URL environment variable,
- * defaults to http://localhost:9000 for local development.
- * 
+ * Base URL is configurable via the VITE_API_URL environment variable (the older
+ * VITE_API_BASE_URL still works), defaults to http://localhost:9000 for local development.
+ *
+ * Demo mode answers read requests from built-in sample data (services/demoData.js) instead of
+ * the API, for public deployments that have no backend behind them. See DEMO MODE below.
+ *
  * Includes:
  *   - Normalized error hierarchy (NetworkError, HttpError, ValidationError, TimeoutError)
  *   - Request timeouts and AbortController integration
@@ -14,8 +17,57 @@
  *   - Safe ANSI code stripping for log streams
  */
 
-const BASE_URL = (typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL) || 'http://localhost:9000';
+import { resolveDemoRequest } from './demoData';
+
+const ENV = (typeof import.meta !== 'undefined' && import.meta?.env) || {};
+const CONFIGURED_BASE_URL = ENV.VITE_API_URL || ENV.VITE_API_BASE_URL || '';
+const BASE_URL = CONFIGURED_BASE_URL || 'http://localhost:9000';
 const DEFAULT_TIMEOUT_MS = 15000;
+
+// ─────────────────────────────────────────────────────────────────────────────
+// DEMO MODE
+// ─────────────────────────────────────────────────────────────────────────────
+//
+// On when VITE_DEMO_MODE=true, or when a production build has no reachable API configured: no
+// URL at all, or a localhost URL on a page that is not itself served from localhost (a public
+// deploy would send visitors' browsers to their own machine). A production build whose configured
+// API turns out to be unreachable switches to demo mode at runtime. VITE_DEMO_MODE=false disables
+// it entirely. Development builds never enter it, so a stopped api-server still shows as an error.
+
+const LOCAL_HOSTS = ['localhost', '127.0.0.1', '[::1]'];
+
+function isLocalUrl(url) {
+  try {
+    return LOCAL_HOSTS.includes(new URL(url).hostname);
+  } catch {
+    return false;
+  }
+}
+
+const servedFromLocalhost = typeof window !== 'undefined' && LOCAL_HOSTS.includes(window.location.hostname);
+const DEMO_ALLOWED = Boolean(ENV.PROD) && ENV.VITE_DEMO_MODE !== 'false';
+let demoActive = ENV.VITE_DEMO_MODE === 'true'
+  || (DEMO_ALLOWED && (!CONFIGURED_BASE_URL || (isLocalUrl(CONFIGURED_BASE_URL) && !servedFromLocalhost)));
+const demoListeners = new Set();
+
+export const DEMO_READ_ONLY_MESSAGE =
+  'This is a public demo with sample data. Creating projects and deploying are turned off because the build backend (AWS ECS, Kafka, ClickHouse, AI service) runs on a private AWS account. Clone the repository to run the full platform.';
+
+export function isDemoMode() {
+  return demoActive;
+}
+
+/** Subscribes to demo mode turning on; returns an unsubscribe function. */
+export function onDemoModeChange(listener) {
+  demoListeners.add(listener);
+  return () => demoListeners.delete(listener);
+}
+
+function enterDemoMode() {
+  if (demoActive) return;
+  demoActive = true;
+  demoListeners.forEach((listener) => listener(true));
+}
 
 // ─────────────────────────────────────────────────────────────────────────────
 // NORMALIZED ERROR TYPES
@@ -301,6 +353,18 @@ export function validateDiagnosisResponse(data) {
 // ─────────────────────────────────────────────────────────────────────────────
 
 /**
+ * Answers a request from the demo sample data, with a short delay so loading states still show.
+ * Writes are refused with DEMO_READ_ONLY_MESSAGE; unknown ids and paths are 404s.
+ */
+async function demoRequest(endpoint, { method = 'GET' } = {}) {
+  await new Promise((resolve) => setTimeout(resolve, 150));
+  const { status, body } = resolveDemoRequest(String(method).toUpperCase(), endpoint);
+  if (status === 200) return body;
+  if (status === 405) throw new ApiError(DEMO_READ_ONLY_MESSAGE, 'DEMO_READ_ONLY');
+  throw new HttpError(status, 'Not Found', body, `demo:${endpoint}`);
+}
+
+/**
  * Fetch wrapper with timeout, signal linking, and normalized error throwing.
  * @param {string} endpoint - API path (e.g. '/project')
  * @param {object} options  - fetch options
@@ -309,6 +373,7 @@ export function validateDiagnosisResponse(data) {
  */
 async function request(endpoint, options = {}) {
   const { timeoutMs = DEFAULT_TIMEOUT_MS, signal: callerSignal, ...fetchOptions } = options;
+  if (demoActive) return demoRequest(endpoint, fetchOptions);
   const url = `${BASE_URL}${endpoint}`;
 
   // Configure AbortController timeout combined with caller's signal
@@ -356,6 +421,11 @@ async function request(endpoint, options = {}) {
     if (err instanceof HttpError || err instanceof ApiError) {
       throw err;
     }
+    // A public build whose API cannot be reached shows sample data instead of failing every page.
+    if (DEMO_ALLOWED) {
+      enterDemoMode();
+      return demoRequest(endpoint, fetchOptions);
+    }
     // Network errors (DNS failure, CORS rejection, connection refused)
     throw new NetworkError(
       `Unable to reach ShipStack API at ${url}. Ensure the api-server is running.`,
@@ -399,6 +469,9 @@ async function requestWithRetry(endpoint, options = {}, maxRetries = 2, baseDela
  * Health check endpoint (probes API server).
  */
 export async function checkApiHealth(signal) {
+  if (demoActive) {
+    return { ok: false, demo: true, error: 'Showing sample data: the ShipStack API is not deployed publicly.' };
+  }
   try {
     // Probe a read-only endpoint (dummy deployment 404 proves server is reachable)
     await request('/deployment/probe-health-check', { signal, timeoutMs: 5000 });
@@ -743,5 +816,8 @@ export async function pollLogs(deploymentId, onLogs, options = {}) {
 
 export const API_CONFIG = {
   baseUrl: BASE_URL,
-  isConfigured: !!(typeof import.meta !== 'undefined' && import.meta?.env?.VITE_API_BASE_URL),
+  isConfigured: Boolean(CONFIGURED_BASE_URL),
+  get demoMode() {
+    return demoActive;
+  },
 };

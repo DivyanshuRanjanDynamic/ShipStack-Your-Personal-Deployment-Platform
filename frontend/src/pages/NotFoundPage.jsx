@@ -56,7 +56,7 @@ export default function NotFoundPage() {
 
         <div style={{ display: 'flex', justifyContent: 'center', gap: '12px' }}>
           <Link
-            to="/"
+            to="/projects"
             className="btn-primary"
             style={{
               display: 'inline-flex',

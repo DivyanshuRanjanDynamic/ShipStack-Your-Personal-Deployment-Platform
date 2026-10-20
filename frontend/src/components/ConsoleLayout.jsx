@@ -100,7 +100,7 @@ export default function ConsoleLayout({ title, children }) {
   const currentProjectId = currentProject?.id || projects[0]?.id;
 
   const navItems = [
-    { label: 'Projects', path: '/', icon: FolderGit2, badge: String(projects.length) },
+    { label: 'Projects', path: '/projects', icon: FolderGit2, badge: String(projects.length) },
     {
       label: 'Deployments',
       path: currentProjectId ? `/projects/${currentProjectId}?tab=deployments` : '/',
@@ -404,7 +404,7 @@ export default function ConsoleLayout({ title, children }) {
           </div>
 
           <div className="topbar-right">
-            <Link to="/marketing" className="btn-topbar-agent" title="Return to Marketing Home">
+            <Link to="/" className="btn-topbar-agent" title="Return to Marketing Home">
               <Home size={14} />
               <span>Marketing Home</span>
             </Link>

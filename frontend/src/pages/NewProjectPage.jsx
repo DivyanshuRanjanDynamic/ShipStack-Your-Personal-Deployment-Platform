@@ -217,7 +217,7 @@ export default function NewProjectPage() {
       <div style={{ maxWidth: '820px', margin: '0 auto', padding: '0 12px 64px' }}>
         {/* Breadcrumb / Back Link */}
         <Link
-          to="/"
+          to="/projects"
           style={{
             display: 'inline-flex',
             alignItems: 'center',
@@ -684,7 +684,7 @@ export default function NewProjectPage() {
 
           {/* Submit Action Button */}
           <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'flex-end', gap: '12px' }}>
-            <Link to="/" className="btn-secondary" style={{ padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
+            <Link to="/projects" className="btn-secondary" style={{ padding: '10px 20px', fontSize: '14px', textDecoration: 'none' }}>
               Cancel
             </Link>
             <button

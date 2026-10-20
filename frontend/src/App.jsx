@@ -5,6 +5,7 @@ import { DeployProvider } from './context/DeployContext';
 import DeploymentModal from './components/DeploymentModal';
 import CreateProjectModal from './components/CreateProjectModal';
 import ErrorBoundary from './components/ErrorBoundary';
+import DemoBanner from './components/DemoBanner';
 import { Loader2 } from 'lucide-react';
 import './App.css';
 
@@ -80,11 +81,22 @@ export default function App() {
       <QueryClientProvider client={queryClient}>
         <DeployProvider>
           <BrowserRouter>
+            <DemoBanner />
             <Suspense fallback={<RouteLoadingFallback />}>
               <Routes>
-                {/* ── 1. Target Flow: Dashboard (/) ── */}
+                {/* Marketing Landing Page: what a first-time visitor sees */}
                 <Route
                   path="/"
+                  element={
+                    <ErrorBoundary title="Marketing View Error">
+                      <HomePage onOpenDeploy={handleOpenDeploy} />
+                    </ErrorBoundary>
+                  }
+                />
+
+                {/* ── 1. Target Flow: Dashboard (/projects) ── */}
+                <Route
+                  path="/projects"
                   element={
                     <ErrorBoundary title="Dashboard View Error">
                       <DashboardPage />
@@ -132,18 +144,8 @@ export default function App() {
                   }
                 />
 
-                {/* Legacy /projects path redirects to Dashboard */}
-                <Route path="/projects" element={<Navigate to="/" replace />} />
-
-                {/* Marketing Landing Page */}
-                <Route
-                  path="/marketing"
-                  element={
-                    <ErrorBoundary title="Marketing View Error">
-                      <HomePage onOpenDeploy={handleOpenDeploy} />
-                    </ErrorBoundary>
-                  }
-                />
+                {/* Legacy marketing path: the landing page now lives at / */}
+                <Route path="/marketing" element={<Navigate to="/" replace />} />
 
                 {/* About Page */}
                 <Route

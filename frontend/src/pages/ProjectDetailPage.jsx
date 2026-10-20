@@ -286,7 +286,7 @@ export default function ProjectDetailPage() {
           <p style={{ color: '#71717a', fontSize: '14px', marginBottom: '24px' }}>
             {projectError?.message || `The project with ID "${projectId}" could not be located.`}
           </p>
-          <Link to="/" className="btn-primary" style={{ padding: '8px 20px', textDecoration: 'none' }}>
+          <Link to="/projects" className="btn-primary" style={{ padding: '8px 20px', textDecoration: 'none' }}>
             Return to Dashboard
           </Link>
         </div>
@@ -301,7 +301,7 @@ export default function ProjectDetailPage() {
       <div style={{ maxWidth: '1180px', margin: '0 auto', padding: '0 12px 64px' }}>
         {/* Back navigation */}
         <Link
-          to="/"
+          to="/projects"
           style={{
             display: 'inline-flex',
             alignItems: 'center',

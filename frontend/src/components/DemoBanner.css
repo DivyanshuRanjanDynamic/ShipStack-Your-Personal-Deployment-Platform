@@ -1,0 +1,85 @@
+.demo-banner {
+  position: fixed;
+  left: 50%;
+  bottom: 16px;
+  transform: translateX(-50%);
+  z-index: 1000;
+  width: min(720px, calc(100vw - 32px));
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+  padding: 12px 14px;
+  border-radius: 10px;
+  background: rgba(10, 10, 10, 0.95);
+  border: 1px solid #1f2a2a;
+  box-shadow: 0 8px 30px rgba(0, 0, 0, 0.55);
+  backdrop-filter: blur(8px);
+  color: #a1a1aa;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.demo-banner__dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  margin-top: 6px;
+  border-radius: 50%;
+  background: #00dfd8;
+  box-shadow: 0 0 8px #00dfd8;
+}
+
+.demo-banner__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.demo-banner__title {
+  color: #fafafa;
+  font-weight: 600;
+  margin-bottom: 2px;
+}
+
+.demo-banner__links {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 16px;
+  margin-top: 6px;
+}
+
+.demo-banner__links a {
+  color: #00dfd8;
+  font-weight: 500;
+  text-decoration: none;
+}
+
+.demo-banner__links a:hover {
+  text-decoration: underline;
+}
+
+.demo-banner__close {
+  flex: none;
+  display: inline-flex;
+  padding: 2px;
+  border: 0;
+  background: none;
+  color: #71717a;
+  cursor: pointer;
+}
+
+.demo-banner__close:hover {
+  color: #fafafa;
+}
+
+/* Phones: keep the notice to a title and links so it doesn't cover the page. */
+@media (max-width: 600px) {
+  .demo-banner {
+    bottom: 8px;
+    padding: 10px 12px;
+    font-size: 12px;
+  }
+
+  .demo-banner__detail {
+    display: none;
+  }
+}

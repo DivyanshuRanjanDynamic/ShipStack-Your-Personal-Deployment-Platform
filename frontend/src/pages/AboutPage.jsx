@@ -66,7 +66,7 @@ function MarketingHeader() {
   return (
     <header className="marketing-header">
       <div className="marketing-header-inner">
-        <Link to="/marketing" className="brand-nebula">
+        <Link to="/" className="brand-nebula">
           <Layers size={20} color="#ffffff" />
           <span>ShipStack</span>
         </Link>
@@ -98,7 +98,7 @@ function MarketingFooter() {
     <footer className="marketing-footer">
       <div className="marketing-footer-top">
         <div>
-          <Link to="/marketing" className="brand-nebula mb-3">
+          <Link to="/" className="brand-nebula mb-3">
             <Layers size={20} />
             <span>ShipStack</span>
           </Link>
