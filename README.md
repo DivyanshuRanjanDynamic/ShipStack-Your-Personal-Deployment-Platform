@@ -171,7 +171,6 @@ npx prisma db push
 
 Open separate terminal windows for each service:
 
-<<<<<<< HEAD
 #### 1. Start the API Server
 ```bash
 cd api-server
@@ -239,4 +238,3 @@ Your Name - [Your Twitter/LinkedIn](https://www.linkedin.com/in/divyanshu-ranjan
 Project Link: [https://github.com/yourusername/shipStack](https://github.com/yourusername/shipStack)
 Portfolio Link: [https://divyanshu.online)
 
->>>>>>> origin
