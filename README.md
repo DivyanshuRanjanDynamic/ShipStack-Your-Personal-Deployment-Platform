@@ -232,9 +232,13 @@ npm run dev
    - Inspect the **Deployments** tab.
    - Open the **Environment Variables** tab, add or edit variables, and click **Save**.
    - Click **Redeploy** to trigger another build task without mutating previous runs.
-=======
-## Contact
-Your Name - [Your Twitter/LinkedIn](https://www.linkedin.com/in/divyanshu-ranjan-6b3b37277/) - divyanshu.work914214@gmail.com
-Project Link: [https://github.com/yourusername/shipStack](https://github.com/yourusername/shipStack)
-Portfolio Link: [https://divyanshu.online)
 
+---
+
+## Contact
+
+- **Author:** Divyanshu Ranjan
+- **LinkedIn:** [divyanshu-ranjan](https://www.linkedin.com/in/divyanshu-ranjan-6b3b37277/)
+- **Email:** divyanshu.work914214@gmail.com
+- **Portfolio:** [divyanshu.online](https://divyanshu.online)
+- **Project:** [ShipStack on GitHub](https://github.com/DivyanshuRanjanDynamic/ShipStack-Your-Personal-Deployment-Platform)
