@@ -151,7 +151,7 @@ KAFKA_PASSWORD="<kafka-password>"
 CLICKHOUSE_HOST="https://<clickhouse-host>:<port>"
 CLICKHOUSE_PASSWORD="<clickhouse-password>"
 API_SERVER_GRPC_HOST="localhost:50051"
-GEMINI_API_KEY="<your-gemini-key>"
+GROQ_API_KEY="<your-gemini-key>"
 ```
 
 ---
