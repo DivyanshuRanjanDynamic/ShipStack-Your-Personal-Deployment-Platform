@@ -5,7 +5,7 @@ ShipStack is a developer-centric, Vercel-like cloud deployment platform that aut
 
 It features a full microservice architecture: **React 19 Frontend**, **Express + Prisma API Server**, **AWS ECS Fargate Build Containers**, **Kafka → ClickHouse Log Streaming**, **S3 Reverse Proxy with gRPC**, and an **Autonomous AI Deployment Diagnosis Pipeline (Rules + RAG + LLM)**.
 
-![shipStack Architecture](https://kommodo.ai/i/hb4MzLFijyY68D3avedo)
+![shipStack Architecture](https://res.cloudinary.com/dtz0urit6/image/upload/q_auto:best,f_jpg/cloudinary-tools-uploads/mjqwexhxhf7up6seydko)
 
 
 ---
